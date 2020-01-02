@@ -28,7 +28,7 @@ import org.apache.griffin.measure.datasource.TimestampStorage
 class JDBCBasedDataConnectorTest extends SparkSuiteBase with Matchers {
 
   val url = "jdbc:h2:mem:test"
-  var conn: java.sql.Connection = null
+  var conn: java.sql.Connection = _
   val properties = new Properties()
   properties.setProperty("user", "user")
   properties.setProperty("password", "password")
