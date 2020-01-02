@@ -19,7 +19,6 @@ package org.apache.griffin.measure.datasource.connector.batch
 
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
-import org.apache.griffin.measure.Loggable
 import org.apache.griffin.measure.configuration.dqdefinition.DataConnectorParam
 import org.apache.griffin.measure.context.TimeRange
 import org.apache.griffin.measure.datasource.TimestampStorage
@@ -48,8 +47,9 @@ case class JDBCBasedDataConnector(
     dcParam: DataConnectorParam,
     timestampStorage: TimestampStorage)
     extends BatchDataConnector {
+  import org.apache.griffin.measure.utils.JDBCUtils._
+  import JDBCConstants._
 
-  import JDBCBasedDataConnector._
   val config: Map[String, Any] = dcParam.getConfig
   val database: String = config.getString(Database, DefaultDatabase)
   val tableName: String = config.getString(TableName, EmptyString)
@@ -64,7 +64,7 @@ case class JDBCBasedDataConnector(
   require(user.nonEmpty, "JDBC connection: user name is mandatory")
   require(password.nonEmpty, "JDBC connection: password is mandatory")
   require(tableName.nonEmpty, "JDBC connection: table is mandatory")
-  assert(isJDBCDriverLoaded(driver), s"JDBC driver ${driver} not present in classpath")
+  assert(isJDBCDriverLoaded(driver).isSuccess, s"JDBC driver $driver not present in classpath")
 
   override def data(ms: Long): (Option[DataFrame], TimeRange) = {
     val dfOpt = try {
@@ -94,34 +94,5 @@ case class JDBCBasedDataConnector(
     if (whereString.length > 0) {
       s"$tableClause WHERE $whereString"
     } else tableClause
-  }
-}
-
-object JDBCBasedDataConnector extends Loggable {
-  private val Database: String = "database"
-  private val TableName: String = "tablename"
-  private val Where: String = "where"
-  private val Url: String = "url"
-  private val User: String = "user"
-  private val Password: String = "password"
-  private val Driver: String = "driver"
-
-  private val DefaultDriver = "com.mysql.jdbc.Driver"
-  private val DefaultDatabase = "default"
-  private val EmptyString = ""
-
-  /**
-   * @param driver JDBC driver class name
-   * @return True if JDBC driver present in classpath
-   */
-  private def isJDBCDriverLoaded(driver: String): Boolean = {
-    try {
-      Class.forName(driver, false, this.getClass.getClassLoader)
-      true
-    } catch {
-      case x: ClassNotFoundException =>
-        griffinLogger.error(s"JDBC driver ${driver} provided is not found in class path")
-        false
-    }
   }
 }
