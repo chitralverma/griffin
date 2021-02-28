@@ -20,7 +20,6 @@ package org.apache.griffin.measure.datasource
 import scala.util.Success
 
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.streaming.StreamingContext
 
 import org.apache.griffin.measure.Loggable
 import org.apache.griffin.measure.configuration.dqdefinition.DataSourceParam
@@ -31,17 +30,15 @@ object DataSourceFactory extends Loggable {
 
   def getDataSources(
       sparkSession: SparkSession,
-      ssc: StreamingContext,
       dataSources: Seq[DataSourceParam]): Seq[DataSource] = {
     dataSources.zipWithIndex.flatMap { pair =>
       val (param, index) = pair
-      getDataSource(sparkSession, ssc, param, index)
+      getDataSource(sparkSession, param, index)
     }
   }
 
   private def getDataSource(
       sparkSession: SparkSession,
-      ssc: StreamingContext,
       dataSourceParam: DataSourceParam,
       index: Int): Option[DataSource] = {
     val name = dataSourceParam.getName
@@ -61,7 +58,6 @@ object DataSourceFactory extends Loggable {
       case Some(connectorParam) =>
         val dataConnectors = DataConnectorFactory.getDataConnector(
           sparkSession,
-          ssc,
           connectorParam,
           timestampStorage,
           streamingCacheClientOpt) match {

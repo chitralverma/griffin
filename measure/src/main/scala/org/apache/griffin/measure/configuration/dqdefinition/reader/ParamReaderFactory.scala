@@ -20,9 +20,9 @@ package org.apache.griffin.measure.configuration.dqdefinition.reader
 import scala.reflect.ClassTag
 import scala.util._
 
+import org.apache.griffin.measure.Loggable
 import org.apache.griffin.measure.configuration.dqdefinition.Param
 import org.apache.griffin.measure.utils.JsonUtil
-import org.apache.griffin.measure.Loggable
 
 object ParamReaderFactory extends Loggable {
 

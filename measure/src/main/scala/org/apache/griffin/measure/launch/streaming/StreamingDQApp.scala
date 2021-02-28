@@ -24,7 +24,6 @@ import scala.util.Try
 
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.streaming.{Milliseconds, StreamingContext}
 
 import org.apache.griffin.measure.Loggable
 import org.apache.griffin.measure.configuration.dqdefinition._
@@ -75,23 +74,12 @@ case class StreamingDQApp(allParam: GriffinConfig) extends DQApp {
 
   def run: Try[Boolean] = Try {
 
-    // streaming context
-    val ssc = StreamingContext.getOrCreate(sparkParam.getCpDir, () => {
-      try {
-        createStreamingContext
-      } catch {
-        case e: Throwable =>
-          error(s"create streaming context error: ${e.getMessage}")
-          throw e
-      }
-    })
-
     // start time
     val measureTime = getMeasureTime
     val contextId = ContextId(measureTime)
 
     // generate data sources
-    val dataSources = DataSourceFactory.getDataSources(sparkSession, ssc, dqParam.getDataSources)
+    val dataSources = DataSourceFactory.getDataSources(sparkSession, dqParam.getDataSources)
     dataSources.foreach(_.init())
 
     // create dq context
@@ -112,11 +100,6 @@ case class StreamingDQApp(allParam: GriffinConfig) extends DQApp {
     }
     val process = Scheduler(processInterval, dqCalculator)
     process.startup()
-
-    ssc.start()
-    ssc.awaitTermination()
-    ssc.stop(stopSparkContext = true, stopGracefully = true)
-
     // clean context
     globalContext.clean()
 
@@ -129,17 +112,6 @@ case class StreamingDQApp(allParam: GriffinConfig) extends DQApp {
   def close: Try[_] = Try {
     sparkSession.close()
     sparkSession.stop()
-  }
-
-  def createStreamingContext: StreamingContext = {
-    val batchInterval = TimeUtil.milliseconds(sparkParam.getBatchInterval) match {
-      case Some(interval) => Milliseconds(interval)
-      case _ => throw new Exception("invalid batch interval")
-    }
-    val ssc = new StreamingContext(sparkSession.sparkContext, batchInterval)
-    ssc.checkpoint(sparkParam.getCpDir)
-
-    ssc
   }
 
   private def clearCpDir(): Unit = {

@@ -147,7 +147,7 @@ class AccuracyTransformationsIntegrationTest extends FlatSpec with Matchers with
   private def getDqContext(
       dataSourcesParam: Seq[DataSourceParam],
       name: String = "test-context"): DQContext = {
-    val dataSources = DataSourceFactory.getDataSources(spark, null, dataSourcesParam)
+    val dataSources = DataSourceFactory.getDataSources(spark, dataSourcesParam)
     dataSources.foreach(_.init())
 
     DQContext(ContextId(System.currentTimeMillis), name, dataSources, Nil, BatchProcessType)(

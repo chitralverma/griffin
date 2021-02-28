@@ -17,26 +17,16 @@
 
 package org.apache.griffin.measure.datasource.connector
 
-import scala.util.Try
-
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.apache.spark.streaming.StreamingContext
-import org.apache.spark.streaming.dstream.InputDStream
 import org.scalatest.FlatSpec
 
 import org.apache.griffin.measure.configuration.dqdefinition.DataConnectorParam
 import org.apache.griffin.measure.context.TimeRange
 import org.apache.griffin.measure.datasource.TimestampStorage
 import org.apache.griffin.measure.datasource.cache.StreamingCacheClient
-import org.apache.griffin.measure.datasource.connector.batch.{
-  BatchDataConnector,
-  MySqlDataConnector
-}
-import org.apache.griffin.measure.datasource.connector.streaming.{
-  KafkaStreamingStringDataConnector,
-  StreamingDataConnector
-}
+import org.apache.griffin.measure.datasource.connector.batch._
+import org.apache.griffin.measure.datasource.connector.streaming.StreamingDataConnector
 
 case class ExampleBatchDataConnector(
     @transient sparkSession: SparkSession,
@@ -49,7 +39,6 @@ case class ExampleBatchDataConnector(
 
 case class ExampleStreamingDataConnector(
     @transient sparkSession: SparkSession,
-    @transient ssc: StreamingContext,
     dcParam: DataConnectorParam,
     timestampStorage: TimestampStorage,
     streamingCacheClientOpt: Option[StreamingCacheClient])
@@ -57,8 +46,6 @@ case class ExampleStreamingDataConnector(
   override type K = Unit
   override type V = Unit
   override type OUT = Unit
-
-  override protected def stream(): Try[InputDStream[this.OUT]] = null
 
   override def transform(rdd: RDD[this.OUT]): Option[DataFrame] = None
 
@@ -84,7 +71,7 @@ class DataConnectorFactorySpec extends FlatSpec {
       Map("class" -> classOf[ExampleBatchDataConnector].getCanonicalName),
       Nil)
     // apparently Scalamock can not mock classes without empty-paren constructor, providing nulls
-    val res = DataConnectorFactory.getDataConnector(null, null, param, null, None)
+    val res = DataConnectorFactory.getDataConnector(null, param, null, None)
     assert(res.get != null)
     assert(res.isSuccess)
     assert(res.get.isInstanceOf[ExampleBatchDataConnector])
@@ -98,7 +85,7 @@ class DataConnectorFactorySpec extends FlatSpec {
       Map("class" -> classOf[MySqlDataConnector].getCanonicalName),
       Nil)
     // apparently Scalamock can not mock classes without empty-paren constructor, providing nulls
-    val res = DataConnectorFactory.getDataConnector(null, null, param, null, None)
+    val res = DataConnectorFactory.getDataConnector(null, param, null, None)
     assert(res.isSuccess)
     assert(res.get.isInstanceOf[MySqlDataConnector])
   }
@@ -107,11 +94,11 @@ class DataConnectorFactorySpec extends FlatSpec {
     val param = DataConnectorParam(
       "CUSTOM",
       null,
-      Map("class" -> classOf[KafkaStreamingStringDataConnector].getCanonicalName),
+      Map("class" -> classOf[StreamingDataConnector].getCanonicalName),
       Nil)
-    val res = DataConnectorFactory.getDataConnector(null, null, param, null, None)
+    val res = DataConnectorFactory.getDataConnector(null, param, null, None)
     assert(res.isSuccess)
-    assert(res.get.isInstanceOf[KafkaStreamingStringDataConnector])
+    assert(res.get.isInstanceOf[StreamingDataConnector])
   }
 
   it should "fail if class is not extending DataConnectors" in {
@@ -121,7 +108,7 @@ class DataConnectorFactorySpec extends FlatSpec {
       Map("class" -> classOf[NotDataConnector].getCanonicalName),
       Nil)
     // apparently Scalamock can not mock classes without empty-paren constructor, providing nulls
-    val res = DataConnectorFactory.getDataConnector(null, null, param, null, None)
+    val res = DataConnectorFactory.getDataConnector(null, param, null, None)
     assert(res.isFailure)
     assert(res.failed.get.isInstanceOf[ClassCastException])
     assert(
@@ -137,7 +124,7 @@ class DataConnectorFactorySpec extends FlatSpec {
       Map("class" -> classOf[DataConnectorWithoutApply].getCanonicalName),
       Nil)
     // apparently Scalamock can not mock classes without empty-paren constructor, providing nulls
-    val res = DataConnectorFactory.getDataConnector(null, null, param, null, None)
+    val res = DataConnectorFactory.getDataConnector(null, param, null, None)
     assert(res.isFailure)
     assert(res.failed.get.isInstanceOf[NoSuchMethodException])
     assert(

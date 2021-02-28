@@ -19,7 +19,7 @@ package org.apache.griffin.measure.configuration.dqdefinition.reader
 
 import org.scalatest.{FlatSpec, Matchers}
 
-import org.apache.griffin.measure.configuration.dqdefinition.{AppConfig, EvaluateRuleParam, RuleOutputParam, RuleParam}
+import org.apache.griffin.measure.configuration.dqdefinition._
 
 class ParamEnumReaderSpec extends FlatSpec with Matchers {
   import org.apache.griffin.measure.configuration.enums.DslType._

@@ -67,7 +67,7 @@ case class BatchDQApp(allParam: GriffinConfig) extends DQApp {
 
       // get data sources
       val dataSources =
-        DataSourceFactory.getDataSources(sparkSession, null, dqParam.getDataSources)
+        DataSourceFactory.getDataSources(sparkSession, dqParam.getDataSources)
       dataSources.foreach(_.init())
 
       // create dq context

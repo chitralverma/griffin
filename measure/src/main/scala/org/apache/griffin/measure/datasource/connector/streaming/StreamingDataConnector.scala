@@ -17,11 +17,8 @@
 
 package org.apache.griffin.measure.datasource.connector.streaming
 
-import scala.util.Try
-
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql._
-import org.apache.spark.streaming.dstream.InputDStream
 
 import org.apache.griffin.measure.context.TimeRange
 import org.apache.griffin.measure.datasource.cache.StreamingCacheClient
@@ -32,8 +29,6 @@ trait StreamingDataConnector extends DataConnector {
   type K
   type V
   type OUT
-
-  protected def stream(): Try[InputDStream[OUT]]
 
   // transform rdd to dataframe
   def transform(rdd: RDD[OUT]): Option[DataFrame]

@@ -21,14 +21,13 @@ import scala.util.Try
 import scala.util.matching.Regex
 
 import org.apache.spark.sql.SparkSession
-import org.apache.spark.streaming.StreamingContext
 
 import org.apache.griffin.measure.Loggable
 import org.apache.griffin.measure.configuration.dqdefinition.DataConnectorParam
 import org.apache.griffin.measure.datasource.TimestampStorage
 import org.apache.griffin.measure.datasource.cache.StreamingCacheClient
 import org.apache.griffin.measure.datasource.connector.batch._
-import org.apache.griffin.measure.datasource.connector.streaming._
+import org.apache.griffin.measure.datasource.connector.streaming.StreamingDataConnector
 
 object DataConnectorFactory extends Loggable {
 
@@ -45,7 +44,6 @@ object DataConnectorFactory extends Loggable {
   /**
    * create data connector
    * @param sparkSession     spark env
-   * @param ssc              spark streaming env
    * @param dcParam          data connector param
    * @param tmstCache        same tmst cache in one data source
    * @param streamingCacheClientOpt   for streaming cache
@@ -53,7 +51,6 @@ object DataConnectorFactory extends Loggable {
    */
   def getDataConnector(
       sparkSession: SparkSession,
-      ssc: StreamingContext,
       dcParam: DataConnectorParam,
       tmstCache: TimestampStorage,
       streamingCacheClientOpt: Option[StreamingCacheClient]): Try[DataConnector] = {
@@ -61,43 +58,20 @@ object DataConnectorFactory extends Loggable {
     Try {
       conType match {
         case HiveRegex() => HiveBatchDataConnector(sparkSession, dcParam, tmstCache)
-        case AvroRegex() => AvroBatchDataConnector(sparkSession, dcParam, tmstCache)
         case FileRegex() => FileBasedDataConnector(sparkSession, dcParam, tmstCache)
-        case TextDirRegex() => TextDirBatchDataConnector(sparkSession, dcParam, tmstCache)
         case ElasticSearchRegex() => ElasticSearchDataConnector(sparkSession, dcParam, tmstCache)
         case CustomRegex() =>
-          getCustomConnector(sparkSession, ssc, dcParam, tmstCache, streamingCacheClientOpt)
-        case KafkaRegex() =>
-          getStreamingDataConnector(
-            sparkSession,
-            ssc,
-            dcParam,
-            tmstCache,
-            streamingCacheClientOpt)
+          getCustomConnector(sparkSession, dcParam, tmstCache, streamingCacheClientOpt)
         case JDBCRegex() => JDBCBasedDataConnector(sparkSession, dcParam, tmstCache)
+        case AvroRegex() => AvroBatchDataConnector(sparkSession, dcParam, tmstCache)
+        case TextDirRegex() => TextDirBatchDataConnector(sparkSession, dcParam, tmstCache)
         case _ => throw new Exception("connector creation error!")
       }
     }
   }
 
-  private def getStreamingDataConnector(
-      sparkSession: SparkSession,
-      ssc: StreamingContext,
-      dcParam: DataConnectorParam,
-      tmstCache: TimestampStorage,
-      streamingCacheClientOpt: Option[StreamingCacheClient]): StreamingDataConnector = {
-    if (ssc == null) throw new Exception("streaming context is null!")
-    val conType = dcParam.getType
-    conType match {
-      case KafkaRegex() =>
-        getKafkaDataConnector(sparkSession, ssc, dcParam, tmstCache, streamingCacheClientOpt)
-      case _ => throw new Exception("streaming connector creation error!")
-    }
-  }
-
   private def getCustomConnector(
       sparkSession: SparkSession,
-      ssc: StreamingContext,
       dcParam: DataConnectorParam,
       timestampStorage: TimestampStorage,
       streamingCacheClientOpt: Option[StreamingCacheClient]): DataConnector = {
@@ -116,41 +90,15 @@ object DataConnectorFactory extends Loggable {
       val method = cls.getDeclaredMethod(
         "apply",
         classOf[SparkSession],
-        classOf[StreamingContext],
         classOf[DataConnectorParam],
         classOf[TimestampStorage],
         classOf[Option[StreamingCacheClient]])
       method
-        .invoke(null, sparkSession, ssc, dcParam, timestampStorage, streamingCacheClientOpt)
+        .invoke(null, sparkSession, dcParam, timestampStorage, streamingCacheClientOpt)
         .asInstanceOf[StreamingDataConnector]
     } else {
       throw new ClassCastException(
         s"$className should extend BatchDataConnector or StreamingDataConnector")
-    }
-  }
-
-  private def getKafkaDataConnector(
-      sparkSession: SparkSession,
-      ssc: StreamingContext,
-      dcParam: DataConnectorParam,
-      tmstCache: TimestampStorage,
-      streamingCacheClientOpt: Option[StreamingCacheClient]): KafkaStreamingDataConnector = {
-    val KeyType = "key.type"
-    val ValueType = "value.type"
-    val config = dcParam.getConfig
-    val keyType = config.getOrElse(KeyType, "java.lang.String").toString
-    val valueType = config.getOrElse(ValueType, "java.lang.String").toString
-
-    (keyType, valueType) match {
-      case ("java.lang.String", "java.lang.String") =>
-        KafkaStreamingStringDataConnector(
-          sparkSession,
-          ssc,
-          dcParam,
-          tmstCache,
-          streamingCacheClientOpt)
-      case _ =>
-        throw new Exception("not supported type kafka data connector")
     }
   }
 
