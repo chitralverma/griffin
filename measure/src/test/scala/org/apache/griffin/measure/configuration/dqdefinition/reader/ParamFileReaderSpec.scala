@@ -20,7 +20,7 @@ package org.apache.griffin.measure.configuration.dqdefinition.reader
 import org.scalatest._
 import scala.util.{Failure, Success}
 
-import org.apache.griffin.measure.configuration.dqdefinition.DQConfig
+import org.apache.griffin.measure.configuration.dqdefinition.AppConfig
 import org.apache.griffin.measure.configuration.enums.DslType.GriffinDsl
 
 class ParamFileReaderSpec extends FlatSpec with Matchers {
@@ -28,7 +28,7 @@ class ParamFileReaderSpec extends FlatSpec with Matchers {
   "params " should "be parsed from a valid file" in {
     val reader: ParamReader =
       ParamFileReader(getClass.getResource("/_accuracy-batch-griffindsl.json").getFile)
-    val params = reader.readConfig[DQConfig]
+    val params = reader.readConfig[AppConfig]
     params match {
       case Success(v) =>
         v.getEvaluateRule.getRules.head.getDslType should ===(GriffinDsl)
@@ -42,7 +42,7 @@ class ParamFileReaderSpec extends FlatSpec with Matchers {
   it should "fail for an invalid file" in {
     val reader: ParamReader = ParamFileReader(
       getClass.getResource("/invalidconfigs/missingrule_accuracy_batch_sparksql.json").getFile)
-    val params = reader.readConfig[DQConfig]
+    val params = reader.readConfig[AppConfig]
     params match {
       case Success(_) =>
         fail("it is an invalid config file")
@@ -57,7 +57,7 @@ class ParamFileReaderSpec extends FlatSpec with Matchers {
       getClass
         .getResource("/invalidconfigs/invalidtype_completeness_batch_griffindal.json")
         .getFile)
-    val params = reader.readConfig[DQConfig]
+    val params = reader.readConfig[AppConfig]
     params match {
       case Success(_) =>
         fail("it is an invalid config file")
@@ -69,7 +69,7 @@ class ParamFileReaderSpec extends FlatSpec with Matchers {
   it should "be parsed from a valid errorconf completeness json file" in {
     val reader: ParamReader = ParamFileReader(
       getClass.getResource("/_completeness_errorconf-batch-griffindsl.json").getFile)
-    val params = reader.readConfig[DQConfig]
+    val params = reader.readConfig[AppConfig]
     params match {
       case Success(v) =>
         v.getEvaluateRule.getRules.head.getErrorConfs.length should ===(2)

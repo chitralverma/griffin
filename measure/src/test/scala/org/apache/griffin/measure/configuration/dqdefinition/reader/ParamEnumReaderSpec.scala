@@ -19,12 +19,7 @@ package org.apache.griffin.measure.configuration.dqdefinition.reader
 
 import org.scalatest.{FlatSpec, Matchers}
 
-import org.apache.griffin.measure.configuration.dqdefinition.{
-  DQConfig,
-  EvaluateRuleParam,
-  RuleOutputParam,
-  RuleParam
-}
+import org.apache.griffin.measure.configuration.dqdefinition.{AppConfig, EvaluateRuleParam, RuleOutputParam, RuleParam}
 
 class ParamEnumReaderSpec extends FlatSpec with Matchers {
   import org.apache.griffin.measure.configuration.enums.DslType._
@@ -164,7 +159,7 @@ class ParamEnumReaderSpec extends FlatSpec with Matchers {
     import org.mockito.Mockito._
 
     import org.apache.griffin.measure.configuration.enums.SinkType._
-    var dqConfig = DQConfig(
+    var dqConfig = AppConfig(
       "test",
       1234,
       "",
@@ -183,11 +178,11 @@ class ParamEnumReaderSpec extends FlatSpec with Matchers {
         "hdfs"))
     dqConfig.getValidSinkTypes should be(Seq(Console, ElasticSearch, MongoDB, Hdfs))
     dqConfig =
-      DQConfig("test", 1234, "", Nil, mock(classOf[EvaluateRuleParam]), List("Consol", "Logg"))
+      AppConfig("test", 1234, "", Nil, mock(classOf[EvaluateRuleParam]), List("Consol", "Logg"))
     dqConfig.getValidSinkTypes should not be Seq(Console)
     dqConfig.getValidSinkTypes should be(Seq())
 
-    dqConfig = DQConfig("test", 1234, "", Nil, mock(classOf[EvaluateRuleParam]), List(""))
+    dqConfig = AppConfig("test", 1234, "", Nil, mock(classOf[EvaluateRuleParam]), List(""))
     dqConfig.getValidSinkTypes should be(Nil)
   }
 

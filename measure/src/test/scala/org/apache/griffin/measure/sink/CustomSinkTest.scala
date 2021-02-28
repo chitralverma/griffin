@@ -57,7 +57,7 @@ class CustomSinkTest extends SinkTestBase {
       }
       sinks.headOption match {
         case Some(sink: CustomSink) => sink.allMetrics
-        case _ => mutable.ListBuffer[String]()
+        case _ => Map.empty
       }
     })
 
@@ -85,7 +85,7 @@ class CustomSinkTest extends SinkTestBase {
       }
       sinks.headOption match {
         case Some(sink: CustomSink) => sink.allRecords
-        case _ =>
+        case _ => Nil
       }
     })
 

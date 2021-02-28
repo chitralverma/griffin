@@ -17,12 +17,13 @@
 
 package org.apache.griffin.measure.job
 
-import org.apache.spark.sql.AnalysisException
 import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 
-import org.apache.griffin.measure.Application.readParamFile
+import org.apache.spark.sql.AnalysisException
+
 import org.apache.griffin.measure.configuration.dqdefinition.EnvConfig
+import org.apache.griffin.measure.configuration.dqdefinition.reader.ParamReaderFactory
 import org.apache.griffin.measure.launch.batch.BatchDQApp
 import org.apache.griffin.measure.step.builder.udf.GriffinUDFAgent
 
@@ -31,13 +32,7 @@ class BatchDQAppTest extends DQAppTest {
   override def beforeAll(): Unit = {
     super.beforeAll()
 
-    envParam = readParamFile[EnvConfig](getConfigFilePath("/env-batch.json")) match {
-      case Success(p) => p
-      case Failure(ex) =>
-        error(ex.getMessage, ex)
-        sys.exit(-2)
-    }
-
+    envParam = ParamReaderFactory.readParam[EnvConfig](getConfigFilePath("/env-batch.json"))
     sparkParam = envParam.getSparkParam
 
     Try {

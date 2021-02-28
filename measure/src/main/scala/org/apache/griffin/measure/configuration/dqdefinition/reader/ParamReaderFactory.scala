@@ -17,18 +17,23 @@
 
 package org.apache.griffin.measure.configuration.dqdefinition.reader
 
-import org.apache.griffin.measure.utils.JsonUtil
+import scala.reflect.ClassTag
+import scala.util._
 
-object ParamReaderFactory {
+import org.apache.griffin.measure.configuration.dqdefinition.Param
+import org.apache.griffin.measure.utils.JsonUtil
+import org.apache.griffin.measure.Loggable
+
+object ParamReaderFactory extends Loggable {
 
   val json = "json"
   val file = "file"
   val httpRegex = "^http[s]?://.*"
 
   /**
-   * parse string content to get param reader
-   * @param pathOrJson
-   * @return
+   * Parse given content to get a [[ParamReader]]
+   * @param pathOrJson this defines whether the input param definition was provided as a location, string or a path
+   * @return instance of a [[ParamReader]]
    */
   def getParamReader(pathOrJson: String): ParamReader = {
     if (pathOrJson.matches(httpRegex)) {
@@ -46,6 +51,20 @@ object ParamReaderFactory {
       json
     } catch {
       case _: Throwable => file
+    }
+  }
+
+  def readParam[T <: Param](file: String)(implicit m: ClassTag[T]): T = {
+    debug(file)
+
+    val paramReader = getParamReader(file)
+    val param = paramReader.readConfig[T]
+
+    param match {
+      case Success(p) => p
+      case Failure(ex) =>
+        error(ex.getMessage, ex)
+        sys.exit(-2)
     }
   }
 

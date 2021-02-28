@@ -35,8 +35,8 @@ import org.apache.griffin.measure.utils.CommonUtils
 
 case class BatchDQApp(allParam: GriffinConfig) extends DQApp {
 
-  val envParam: EnvConfig = allParam.getEnvConfig
-  val dqParam: DQConfig = allParam.getDqConfig
+  val envParam: EnvConfig = allParam.envConfig
+  val dqParam: AppConfig = allParam.appConfig
 
   val sparkParam: SparkParam = envParam.getSparkParam
   val metricName: String = dqParam.getName

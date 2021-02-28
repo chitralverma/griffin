@@ -22,7 +22,7 @@ import scala.io.Source
 import org.scalatest.{FlatSpec, Matchers}
 import scala.util.{Failure, Success}
 
-import org.apache.griffin.measure.configuration.dqdefinition.DQConfig
+import org.apache.griffin.measure.configuration.dqdefinition.AppConfig
 import org.apache.griffin.measure.configuration.enums.DslType.GriffinDsl
 
 class ParamJsonReaderSpec extends FlatSpec with Matchers {
@@ -34,7 +34,7 @@ class ParamJsonReaderSpec extends FlatSpec with Matchers {
     bufferedSource.close
 
     val reader: ParamReader = ParamJsonReader(jsonString)
-    val params = reader.readConfig[DQConfig]
+    val params = reader.readConfig[AppConfig]
     params match {
       case Success(v) =>
         v.getEvaluateRule.getRules.head.getDslType should ===(GriffinDsl)
@@ -52,7 +52,7 @@ class ParamJsonReaderSpec extends FlatSpec with Matchers {
     bufferedSource.close
 
     val reader: ParamReader = ParamJsonReader(jsonString)
-    val params = reader.readConfig[DQConfig]
+    val params = reader.readConfig[AppConfig]
     params match {
       case Success(_) =>
         fail("it is an invalid config file")

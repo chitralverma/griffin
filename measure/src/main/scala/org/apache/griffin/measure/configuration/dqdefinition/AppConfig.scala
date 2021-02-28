@@ -41,7 +41,7 @@ import org.apache.griffin.measure.configuration.enums.SinkType.SinkType
  * @param sinks          sink types (optional, by default will be elasticsearch)
  */
 @JsonInclude(Include.NON_NULL)
-case class DQConfig(
+case class AppConfig(
     @JsonProperty("name") private val name: String,
     @JsonProperty("timestamp") private val timestamp: Long,
     @JsonProperty("process.type") private val procType: String,

@@ -17,13 +17,11 @@
 
 package org.apache.griffin.measure.job
 
-import scala.util.{Failure, Success}
-
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 
 import org.apache.griffin.measure.{Loggable, SparkSuiteBase}
-import org.apache.griffin.measure.Application._
 import org.apache.griffin.measure.configuration.dqdefinition._
+import org.apache.griffin.measure.configuration.dqdefinition.reader.ParamReaderFactory
 import org.apache.griffin.measure.configuration.enums.ProcessType
 import org.apache.griffin.measure.configuration.enums.ProcessType._
 import org.apache.griffin.measure.launch.DQApp
@@ -52,17 +50,11 @@ class DQAppTest
   }
 
   def initApp(dqParamFile: String): DQApp = {
-    val dqParam = readParamFile[DQConfig](getConfigFilePath(dqParamFile)) match {
-      case Success(p) => p
-      case Failure(ex) =>
-        error(ex.getMessage, ex)
-        sys.exit(-2)
-    }
-
-    val allParam: GriffinConfig = GriffinConfig(envParam, dqParam)
+    val appConfig = ParamReaderFactory.readParam[AppConfig](getConfigFilePath(dqParamFile))
+    val allParam: GriffinConfig = GriffinConfig(envParam, appConfig)
 
     // choose process
-    val procType = ProcessType.withNameWithDefault(allParam.getDqConfig.getProcType)
+    val procType = ProcessType.withNameWithDefault(allParam.appConfig.getProcType)
     dqApp = procType match {
       case BatchProcessType => BatchDQApp(allParam)
       case StreamingProcessType => StreamingDQApp(allParam)
