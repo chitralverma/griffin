@@ -15,17 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.griffin.measure.datasource.connector.batch
+package org.apache.griffin.measure.datasource.impl
 
 import scala.collection.mutable.{Map => MutableMap}
-import scala.util._
 
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.{Dataset, Row}
 import org.elasticsearch.hadoop.cfg.ConfigurationOptions
 
-import org.apache.griffin.measure.configuration.dqdefinition.DataConnectorParam
-import org.apache.griffin.measure.context.TimeRange
-import org.apache.griffin.measure.datasource.TimestampStorage
+import org.apache.griffin.measure.configuration.dqdefinition.DataSourceParam
+import org.apache.griffin.measure.datasource.BatchDataSource
 import org.apache.griffin.measure.utils.ParamUtil._
 
 /**
@@ -48,11 +46,10 @@ import org.apache.griffin.measure.utils.ParamUtil._
  *  - Selection expressions are applied first, then the filter expressions.
  *  - filterExprs/selectionExprs may be left empty if no filters are to be applied.
  */
-case class ElasticSearchDataConnector(
-    @transient sparkSession: SparkSession,
-    dcParam: DataConnectorParam,
-    timestampStorage: TimestampStorage)
-    extends BatchDataConnector {
+class ElasticsearchDataSource(dataSourceParam: DataSourceParam)
+    extends BatchDataSource(dataSourceParam) {
+  override type T = Row
+  override type Connector = Unit
 
   final val ElasticSearchFormat: String = "es"
   final val Options: String = "options"
@@ -61,7 +58,7 @@ case class ElasticSearchDataConnector(
   final val FilterExprs: String = "filterExprs"
   final val SelectionExprs: String = "selectionExprs"
 
-  val config: Map[String, Any] = dcParam.getConfig
+  val config: Map[String, Any] = dataSourceParam.getConfig
 
   final val filterExprs: Seq[String] = config.getStringArr(FilterExprs)
   final val selectionExprs: Seq[String] = config.getStringArr(SelectionExprs)
@@ -74,32 +71,25 @@ case class ElasticSearchDataConnector(
     case s: String => s
   }
 
-  override def data(ms: Long): (Option[DataFrame], TimeRange) = {
-    val dfOpt = {
-      val dfOpt = Try {
-        val indexesDF = sparkSession.read
-          .options(options)
-          .format(ElasticSearchFormat)
-          .load(paths)
+  override def validate(): Unit = {
+    assert(
+      config.getStringArr(Paths) != null,
+      s"Mandatory configuration '$Paths' is either empty or not defined.")
+  }
 
-        val df = {
-          if (selectionExprs.nonEmpty) indexesDF.selectExpr(selectionExprs: _*)
-          else indexesDF
-        }
+  override protected def initializeConnector(): Unit = {}
 
-        filterExprs.foldLeft(df)((currentDf, expr) => currentDf.where(expr))
-      }
+  override def readBatch(): Dataset[Row] = {
+    val indexesDF = sparkSession.read
+      .options(options)
+      .format(ElasticSearchFormat)
+      .load(paths)
 
-      dfOpt match {
-        case Success(_) =>
-        case Failure(exception) =>
-          griffinLogger.error("Error occurred while reading data set.", exception)
-      }
-
-      val preDfOpt = preProcess(dfOpt.toOption, ms)
-      preDfOpt
+    val df = {
+      if (selectionExprs.nonEmpty) indexesDF.selectExpr(selectionExprs: _*)
+      else indexesDF
     }
 
-    (dfOpt, TimeRange(ms, readTmst(ms)))
+    filterExprs.foldLeft(df)((currentDf, expr) => currentDf.where(expr))
   }
 }

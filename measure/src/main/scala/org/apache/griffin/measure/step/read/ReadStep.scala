@@ -17,10 +17,12 @@
 
 package org.apache.griffin.measure.step.read
 
-import org.apache.spark.sql._
 import scala.util.Try
 
+import org.apache.spark.sql._
+
 import org.apache.griffin.measure.context.DQContext
+import org.apache.griffin.measure.execution.TableRegister
 import org.apache.griffin.measure.step.DQStep
 
 trait ReadStep extends DQStep {
@@ -33,8 +35,7 @@ trait ReadStep extends DQStep {
     info(s"read data source [$name]")
     read(context) match {
       case Some(df) =>
-//        if (needCache) context.dataFrameCache.cacheDataFrame(name, df)
-        context.runTimeTableRegister.registerTable(name, df)
+        TableRegister.registerTable(name, df)
         true
       case _ =>
         warn(s"read data source [$name] fails")

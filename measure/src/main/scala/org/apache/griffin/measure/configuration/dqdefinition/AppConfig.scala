@@ -52,7 +52,7 @@ case class AppConfig(
   def getName: String = name
   def getTimestampOpt: Option[Long] = if (timestamp != 0) Some(timestamp) else None
   def getProcType: String = procType
-  def getDataSources: Seq[DataSourceParam] = {
+  def getDataSourceParams: Seq[DataSourceParam] = {
     dataSources
       .foldLeft((Nil: Seq[DataSourceParam], Set[String]())) { (ret, ds) =>
         val (seq, names) = ret
@@ -71,59 +71,41 @@ case class AppConfig(
     assert(StringUtils.isNotBlank(procType), "process.type should not be blank")
     assert(dataSources != null, "data.sources should not be null")
     assert(evaluateRule != null, "evaluate.rule should not be null")
-    getDataSources.foreach(_.validate())
+    getDataSourceParams.foreach(_.validate())
     evaluateRule.validate()
   }
 }
 
 /**
  * data source param
- * @param name         data source name (must)
- * @param baseline     data source is baseline or not, false by default (optional)
- * @param connector   data connector (optional)
- * @param checkpoint   data source checkpoint configuration (must in streaming mode with streaming connectors)
+ * @param name data source name (must)
+ * @param conType data source type, e.g.: hive, avro, kafka (must)
+ * @param isStreaming is this a streaming data source or a batch data source
+ * @param config detail configuration of data source (must)
+ * @param preProc pre-process rules after load data (optional)
+ * @param dataFrameName data source dataframe name, for pre-process input usage (optional)
  */
 @JsonInclude(Include.NON_NULL)
 case class DataSourceParam(
     @JsonProperty("name") private val name: String,
-    @JsonProperty("connector") private val connector: DataConnectorParam,
-    @JsonProperty("baseline") private val baseline: Boolean = false,
-    @JsonProperty("checkpoint") private val checkpoint: Map[String, Any] = null)
+    @JsonProperty("type") private val conType: String,
+    @JsonProperty("isStreaming") private val isStreaming: Boolean = false,
+    @JsonProperty("config") private val config: Map[String, Any],
+    @JsonProperty("pre.proc") private val preProc: List[RuleParam],
+    @JsonProperty("dataframe.name") private val dataFrameName: String)
     extends Param {
   def getName: String = name
-  def isBaseline: Boolean = if (Option(baseline).isDefined) baseline else false
-  def getConnector: Option[DataConnectorParam] = Option(connector)
-  def getCheckpointOpt: Option[Map[String, Any]] = Option(checkpoint)
+  def getType: String = conType
+  def getIsStreaming: Boolean = isStreaming
+  def getConfig: Map[String, Any] = if (config != null) config else Map[String, Any]()
+  def getPreProcRules: Seq[RuleParam] = if (preProc != null) preProc else Nil
+  def getDataFrameName(defName: String): String =
+    if (dataFrameName != null) dataFrameName else defName
 
   def validate(): Unit = {
     assert(StringUtils.isNotBlank(name), "data source name should not be empty")
-    assert(getConnector.isDefined, "Connector is undefined or invalid")
-    getConnector.foreach(_.validate())
-  }
-}
-
-/**
- * data connector param
- * @param conType    data connector type, e.g.: hive, avro, kafka (must)
- * @param dataFrameName    data connector dataframe name, for pre-process input usage (optional)
- * @param config     detail configuration of data connector (must)
- * @param preProc    pre-process rules after load data (optional)
- */
-@JsonInclude(Include.NON_NULL)
-case class DataConnectorParam(
-    @JsonProperty("type") private val conType: String,
-    @JsonProperty("dataframe.name") private val dataFrameName: String,
-    @JsonProperty("config") private val config: Map[String, Any],
-    @JsonProperty("pre.proc") private val preProc: List[RuleParam])
-    extends Param {
-  def getType: String = conType
-  def getDataFrameName(defName: String): String =
-    if (dataFrameName != null) dataFrameName else defName
-  def getConfig: Map[String, Any] = if (config != null) config else Map[String, Any]()
-  def getPreProcRules: Seq[RuleParam] = if (preProc != null) preProc else Nil
-
-  def validate(): Unit = {
-    assert(StringUtils.isNotBlank(conType), "data connector type should not be empty")
+    assert(conType != null, "data source type should not be empty")
+    assert(StringUtils.isNotBlank(conType), "data source type should not be empty")
     getPreProcRules.foreach(_.validate())
   }
 }
@@ -148,7 +130,7 @@ case class EvaluateRuleParam(@JsonProperty("rules") private val rules: List[Rule
  * @param dqType     dq type of this rule (must if dsl type is "griffin-dsl")
  * @param inDfName   name of input dataframe of this rule, by default will be the previous rule output dataframe name
  * @param outDfName  name of output dataframe of this rule, by default will be generated
- *                   as data connector dataframe name with index suffix
+ *                   as dataframe name with index suffix
  * @param rule       rule to define dq step calculation (must)
  * @param details    detail config of rule (optional)
  * @param cache      cache the result for multiple usage (optional, valid for "spark-sql" and "df-ops" mode)

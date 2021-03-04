@@ -55,7 +55,6 @@ object SparkSessionFactory extends Loggable {
   }
 
   def close(): Unit = {
-    Thread.sleep(5000)
 
     if (sparkSession != null) {
       Try(sparkSession.close()) match {
@@ -66,6 +65,7 @@ object SparkSessionFactory extends Loggable {
       }
 
       sparkSession = null
+      Thread.sleep(5000)
     } else warn("Tried closing an already closed SparkSession")
   }
 

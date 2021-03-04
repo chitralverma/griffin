@@ -18,23 +18,17 @@
 package org.apache.griffin.measure.step.builder.dsl.transform
 
 import org.apache.griffin.measure.configuration.dqdefinition.RuleParam
-import org.apache.griffin.measure.configuration.enums.FlattenType.{
-  ArrayFlattenType,
-  EntriesFlattenType
-}
+import org.apache.griffin.measure.configuration.enums.FlattenType._
 import org.apache.griffin.measure.configuration.enums.OutputType._
 import org.apache.griffin.measure.configuration.enums.ProcessType._
 import org.apache.griffin.measure.context.DQContext
+import org.apache.griffin.measure.execution.TableRegister
 import org.apache.griffin.measure.step.DQStep
 import org.apache.griffin.measure.step.builder.ConstantColumns
 import org.apache.griffin.measure.step.builder.dsl.expr.{DistinctnessClause, _}
 import org.apache.griffin.measure.step.builder.dsl.transform.analyzer.DistinctnessAnalyzer
 import org.apache.griffin.measure.step.transform.SparkSqlTransformStep
-import org.apache.griffin.measure.step.write.{
-  DataSourceUpdateWriteStep,
-  MetricWriteStep,
-  RecordWriteStep
-}
+import org.apache.griffin.measure.step.write._
 import org.apache.griffin.measure.utils.ParamUtil._
 
 /**
@@ -69,26 +63,14 @@ case class DistinctnessExpr2DQSteps(context: DQContext, expr: Expr, ruleParam: R
 
     val procType = context.procType
     val timestamp = context.contextId.timestamp
-    val dsTimeRanges = context.dataSourceTimeRanges
 
-    val beginTmst = dsTimeRanges.get(sourceName).map(_.begin) match {
-      case Some(t) => t
-      case _ => throw new Exception(s"empty begin tmst from $sourceName")
-    }
-    val endTmst = dsTimeRanges.get(sourceName).map(_.end) match {
-      case Some(t) => t
-      case _ => throw new Exception(s"empty end tmst from $sourceName")
-    }
-
-    val writeTimestampOpt = Some(endTmst)
-
-    if (!context.runTimeTableRegister.existsTable(sourceName)) {
+    if (!TableRegister.existsTable(sourceName)) {
       warn(s"[$timestamp] data source $sourceName not exists")
       Nil
     } else {
       val withOlderTable = {
         details.getBoolean(_withAccumulate, defValue = true) &&
-        context.runTimeTableRegister.existsTable(targetName)
+        TableRegister.existsTable(targetName)
       }
 
       val selClause = analyzer.selectionPairs
@@ -119,7 +101,7 @@ case class DistinctnessExpr2DQSteps(context: DQContext, expr: Expr, ruleParam: R
         s"SELECT COUNT(*) AS `$totalColName` FROM `$sourceAliasTableName`"
       }
       val totalMetricWriteStep = {
-        MetricWriteStep(totalColName, totalTableName, EntriesFlattenType, writeTimestampOpt)
+        MetricWriteStep(totalColName, totalTableName, EntriesFlattenType)
       }
       val totalTransStep =
         SparkSqlTransformStep(totalTableName, totalSql, emptyMap, Some(totalMetricWriteStep))
@@ -150,7 +132,7 @@ case class DistinctnessExpr2DQSteps(context: DQContext, expr: Expr, ruleParam: R
           // 4. older alias
           val olderAliasTableName = "__older"
           val olderAliasSql = {
-            s"SELECT $selClause FROM `$targetName` WHERE `${ConstantColumns.tmst}` <= $beginTmst"
+            s"SELECT $selClause FROM `$targetName`"
           }
           val olderAliasTransStep =
             SparkSqlTransformStep(olderAliasTableName, olderAliasSql, emptyMap)
@@ -248,7 +230,7 @@ case class DistinctnessExpr2DQSteps(context: DQContext, expr: Expr, ruleParam: R
          """.stripMargin
       }
       val distMetricWriteStep = {
-        MetricWriteStep(distColName, distTableName, EntriesFlattenType, writeTimestampOpt)
+        MetricWriteStep(distColName, distTableName, EntriesFlattenType)
       }
       val distTransStep =
         SparkSqlTransformStep(distTableName, distSql, emptyMap, Some(distMetricWriteStep))
@@ -305,7 +287,7 @@ case class DistinctnessExpr2DQSteps(context: DQContext, expr: Expr, ruleParam: R
               .getOutputOpt(RecordOutputType)
               .flatMap(_.getNameOpt)
               .getOrElse(dupItemsTableName)
-            RecordWriteStep(rwName, dupItemsTableName, None, writeTimestampOpt)
+            RecordWriteStep(rwName, dupItemsTableName, None)
           }
           val dupItemsTransStep = {
             if (recordEnable) {
@@ -331,11 +313,7 @@ case class DistinctnessExpr2DQSteps(context: DQContext, expr: Expr, ruleParam: R
              """.stripMargin
           }
           val groupDupMetricWriteStep = {
-            MetricWriteStep(
-              duplicationArrayName,
-              groupDupMetricTableName,
-              ArrayFlattenType,
-              writeTimestampOpt)
+            MetricWriteStep(duplicationArrayName, groupDupMetricTableName, ArrayFlattenType)
           }
           val groupDupMetricTransStep =
             SparkSqlTransformStep(
@@ -368,7 +346,7 @@ case class DistinctnessExpr2DQSteps(context: DQContext, expr: Expr, ruleParam: R
                 .getOutputOpt(RecordOutputType)
                 .flatMap(_.getNameOpt)
                 .getOrElse(dupRecordTableName)
-            RecordWriteStep(rwName, dupRecordTableName, None, writeTimestampOpt)
+            RecordWriteStep(rwName, dupRecordTableName, None)
           }
           val dupRecordTransStep = {
             if (recordEnable) {
@@ -398,11 +376,7 @@ case class DistinctnessExpr2DQSteps(context: DQContext, expr: Expr, ruleParam: R
               """.stripMargin
           }
           val dupMetricWriteStep = {
-            MetricWriteStep(
-              duplicationArrayName,
-              dupMetricTableName,
-              ArrayFlattenType,
-              writeTimestampOpt)
+            MetricWriteStep(duplicationArrayName, dupMetricTableName, ArrayFlattenType)
           }
           val dupMetricTransStep =
             SparkSqlTransformStep(

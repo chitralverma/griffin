@@ -15,22 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.griffin.measure.datasource.connector.batch
+package org.apache.griffin.measure.datasource.impl
 
-import org.apache.spark.sql.{DataFrame, DataFrameReader, SparkSession}
+import org.apache.spark.sql.{DataFrame, DataFrameReader, Dataset, Row}
 
-import org.apache.griffin.measure.configuration.dqdefinition.DataConnectorParam
-import org.apache.griffin.measure.context.TimeRange
-import org.apache.griffin.measure.datasource.TimestampStorage
+import org.apache.griffin.measure.configuration.dqdefinition.DataSourceParam
+import org.apache.griffin.measure.datasource.BatchDataSource
 import org.apache.griffin.measure.utils.ParamUtil._
 
-case class CassandraDataConnector(
-    @transient sparkSession: SparkSession,
-    dcParam: DataConnectorParam,
-    timestampStorage: TimestampStorage)
-    extends BatchDataConnector {
+class CassandraDataSource(dataSourceParam: DataSourceParam)
+    extends BatchDataSource(dataSourceParam) {
+  override type T = Row
+  override type Connector = Unit
 
-  val config: Map[String, Any] = dcParam.getConfig
+  val config: Map[String, Any] = dataSourceParam.getConfig
 
   val Database = "database"
   val TableName = "table.name"
@@ -50,37 +48,28 @@ case class CassandraDataConnector(
   val password: String = config.getString(Password, "")
   val wheres: Array[String] = whereString.split(",").map(_.trim).filter(_.nonEmpty)
 
-  override def data(ms: Long): (Option[DataFrame], TimeRange) = {
+  override def initializeConnector(): Unit = {
+    sparkSession.conf.set("spark.cassandra.connection.host", host)
+    sparkSession.conf.set("spark.cassandra.connection.port", port)
+    sparkSession.conf.set("spark.cassandra.auth.username", user)
+    sparkSession.conf.set("spark.cassandra.auth.password", password)
+  }
 
-    val dfOpt = try {
-      sparkSession.conf.set("spark.cassandra.connection.host", host)
-      sparkSession.conf.set("spark.cassandra.connection.port", port)
-      sparkSession.conf.set("spark.cassandra.auth.username", user)
-      sparkSession.conf.set("spark.cassandra.auth.password", password)
+  override def readBatch(): Dataset[Row] = {
+    val tableDef: DataFrameReader = sparkSession.read
+      .format("org.apache.spark.sql.cassandra")
+      .options(Map("table" -> tableName, "keyspace" -> database))
 
-      val tableDef: DataFrameReader = sparkSession.read
-        .format("org.apache.spark.sql.cassandra")
-        .options(Map("table" -> tableName, "keyspace" -> database))
+    val dataWh: String = dataWhere()
 
-      val dataWh: String = dataWhere()
-
-      var data: DataFrame = null
-      if (wheres.length > 0) {
-        data = tableDef.load().where(dataWh)
-      } else {
-        data = tableDef.load()
-      }
-
-      val dfOpt = Some(data)
-      val preDfOpt = preProcess(dfOpt, ms)
-      preDfOpt
-    } catch {
-      case e: Throwable =>
-        error(s"load cassandra table $database.$TableName fails: ${e.getMessage}", e)
-        None
+    var data: DataFrame = null
+    if (wheres.length > 0) {
+      data = tableDef.load().where(dataWh)
+    } else {
+      data = tableDef.load()
     }
-    val tmsts = readTmst(ms)
-    (dfOpt, TimeRange(ms, tmsts))
+
+    data
   }
 
   private def dataWhere(): String = {

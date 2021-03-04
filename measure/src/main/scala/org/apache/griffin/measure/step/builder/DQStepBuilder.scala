@@ -20,9 +20,8 @@ package org.apache.griffin.measure.step.builder
 import org.apache.commons.lang.StringUtils
 
 import org.apache.griffin.measure.Loggable
-import org.apache.griffin.measure.configuration.dqdefinition.{DataSourceParam, Param, RuleParam}
+import org.apache.griffin.measure.configuration.dqdefinition.{Param, RuleParam}
 import org.apache.griffin.measure.configuration.enums.DslType._
-import org.apache.griffin.measure.configuration.enums.ProcessType._
 import org.apache.griffin.measure.context.DQContext
 import org.apache.griffin.measure.step._
 
@@ -44,31 +43,13 @@ trait DQStepBuilder extends Loggable with Serializable {
 
 object DQStepBuilder {
 
-  def buildStepOptByDataSourceParam(
-      context: DQContext,
-      dsParam: DataSourceParam): Option[DQStep] = {
-    getDataSourceParamStepBuilder(context.procType)
-      .flatMap(_.buildDQStep(context, dsParam))
-  }
-
-  private def getDataSourceParamStepBuilder(
-      procType: ProcessType): Option[DataSourceParamStepBuilder] = {
-    procType match {
-      case BatchProcessType => Some(BatchDataSourceStepBuilder())
-      case StreamingProcessType => Some(StreamingDataSourceStepBuilder())
-      case _ => None
-    }
-  }
-
   def buildStepOptByRuleParam(context: DQContext, ruleParam: RuleParam): Option[DQStep] = {
     val dslType = ruleParam.getDslType
     val dsNames = context.dataSourceNames
     val funcNames = context.functionNames
-    val dqStepOpt = getRuleParamStepBuilder(dslType, dsNames, funcNames)
-      .flatMap(_.buildDQStep(context, ruleParam))
-    dqStepOpt.toSeq
-      .flatMap(_.getNames)
-      .foreach(name => context.compileTableRegister.registerTable(name))
+    val dqStepOpt = getRuleParamStepBuilder(dslType, dsNames, funcNames).flatMap(
+      _.buildDQStep(context, ruleParam))
+
     dqStepOpt
   }
 

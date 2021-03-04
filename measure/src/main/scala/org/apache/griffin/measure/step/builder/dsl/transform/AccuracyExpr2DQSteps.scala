@@ -22,21 +22,14 @@ import org.apache.griffin.measure.configuration.enums.FlattenType.DefaultFlatten
 import org.apache.griffin.measure.configuration.enums.OutputType._
 import org.apache.griffin.measure.configuration.enums.ProcessType._
 import org.apache.griffin.measure.context.DQContext
+import org.apache.griffin.measure.execution.TableRegister
 import org.apache.griffin.measure.step.DQStep
 import org.apache.griffin.measure.step.builder.ConstantColumns
 import org.apache.griffin.measure.step.builder.dsl.expr._
 import org.apache.griffin.measure.step.builder.dsl.transform.analyzer.AccuracyAnalyzer
-import org.apache.griffin.measure.step.transform.{
-  DataFrameOps,
-  DataFrameOpsTransformStep,
-  SparkSqlTransformStep
-}
+import org.apache.griffin.measure.step.transform._
 import org.apache.griffin.measure.step.transform.DataFrameOps.AccuracyOprKeys
-import org.apache.griffin.measure.step.write.{
-  DataSourceUpdateWriteStep,
-  MetricWriteStep,
-  RecordWriteStep
-}
+import org.apache.griffin.measure.step.write._
 import org.apache.griffin.measure.utils.ParamUtil._
 
 /**
@@ -66,7 +59,7 @@ case class AccuracyExpr2DQSteps(context: DQContext, expr: Expr, ruleParam: RuleP
     val procType = context.procType
     val timestamp = context.contextId.timestamp
 
-    if (!context.runTimeTableRegister.existsTable(sourceName)) {
+    if (!TableRegister.existsTable(sourceName)) {
       warn(s"[$timestamp] data source $sourceName not exists")
       Nil
     } else {
@@ -74,7 +67,7 @@ case class AccuracyExpr2DQSteps(context: DQContext, expr: Expr, ruleParam: RuleP
       val missRecordsTableName = "__missRecords"
       val selClause = s"`$sourceName`.*"
       val missRecordsSql =
-        if (!context.runTimeTableRegister.existsTable(targetName)) {
+        if (!TableRegister.existsTable(targetName)) {
           warn(s"[$timestamp] data source $targetName not exists")
           s"SELECT $selClause FROM `$sourceName`"
         } else {

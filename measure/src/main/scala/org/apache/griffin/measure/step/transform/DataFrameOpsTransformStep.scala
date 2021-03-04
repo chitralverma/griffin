@@ -20,6 +20,7 @@ package org.apache.griffin.measure.step.transform
 import scala.util.Try
 
 import org.apache.griffin.measure.context.DQContext
+import org.apache.griffin.measure.execution.TableRegister
 import org.apache.griffin.measure.step.write.WriteStep
 
 /**
@@ -45,7 +46,7 @@ case class DataFrameOpsTransformStep[T <: WriteStep](
         case _ => throw new Exception(s"df opr [ $rule ] not supported")
       }
       if (cache) context.dataFrameCache.cacheDataFrame(name, df)
-      context.runTimeTableRegister.registerTable(name, df)
+      TableRegister.registerTable(name, df)
       writeStepOpt match {
         case Some(writeStep) => writeStep.execute(context)
         case None => Try(true)

@@ -15,16 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.griffin.measure.datasource.connector.batch
+package org.apache.griffin.measure.datasource.impl
 
-import scala.util._
+import java.util.Properties
 
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.{Dataset, Row}
 
-import org.apache.griffin.measure.Loggable
-import org.apache.griffin.measure.configuration.dqdefinition.DataConnectorParam
-import org.apache.griffin.measure.context.TimeRange
-import org.apache.griffin.measure.datasource.TimestampStorage
+import org.apache.griffin.measure.configuration.dqdefinition.DataSourceParam
+import org.apache.griffin.measure.datasource.BatchDataSource
 import org.apache.griffin.measure.utils.ParamUtil._
 
 /**
@@ -45,14 +43,13 @@ import org.apache.griffin.measure.utils.ParamUtil._
  *  - `driver` is com.mysql.jdbc.Driver,
  *  - `where` is None
  */
-case class JDBCBasedDataConnector(
-    @transient sparkSession: SparkSession,
-    dcParam: DataConnectorParam,
-    timestampStorage: TimestampStorage)
-    extends BatchDataConnector {
+class JDBCDataSource(dataSourceParam: DataSourceParam) extends BatchDataSource(dataSourceParam) {
+  override type T = Row
+  override type Connector = Unit
 
-  import JDBCBasedDataConnector._
-  val config: Map[String, Any] = dcParam.getConfig
+  import JDBCDataSource._
+
+  val config: Map[String, Any] = dataSourceParam.getConfig
   val database: String = config.getString(Database, DefaultDatabase)
   val tableName: String = config.getString(TableName, EmptyString)
   val fullTableName: String = s"$database.$tableName"
@@ -61,62 +58,6 @@ case class JDBCBasedDataConnector(
   val user: String = config.getString(User, EmptyString)
   val password: String = config.getString(Password, EmptyString)
   val driver: String = config.getString(Driver, DefaultDriver)
-
-  require(url.nonEmpty, "JDBC connection: connection url is mandatory")
-  require(user.nonEmpty, "JDBC connection: user name is mandatory")
-  require(password.nonEmpty, "JDBC connection: password is mandatory")
-  require(tableName.nonEmpty, "JDBC connection: table is mandatory")
-  assert(isJDBCDriverLoaded(driver), s"JDBC driver $driver not present in classpath")
-
-  override def data(ms: Long): (Option[DataFrame], TimeRange) = {
-    val dfOpt = try {
-      val dtSql = createSqlStmt()
-      val prop = new java.util.Properties
-      prop.setProperty("user", user)
-      prop.setProperty("password", password)
-      prop.setProperty("driver", driver)
-      val dfOpt = Try(sparkSession.read.jdbc(url, s"($dtSql) as t", prop))
-
-      dfOpt match {
-        case Success(_) =>
-        case Failure(exception) =>
-          griffinLogger.error("Error occurred while reading data set.", exception)
-      }
-
-      val preDfOpt = preProcess(dfOpt.toOption, ms)
-      preDfOpt
-    } catch {
-      case e: Throwable =>
-        error(s"loading table $fullTableName fails: ${e.getMessage}", e)
-        None
-    }
-    val tmsts = readTmst(ms)
-    (dfOpt, TimeRange(ms, tmsts))
-  }
-
-  /**
-   * @return Return SQL statement with where condition if provided
-   */
-  private def createSqlStmt(): String = {
-    val tableClause = s"SELECT * FROM $fullTableName"
-    if (whereString.length > 0) {
-      s"$tableClause WHERE $whereString"
-    } else tableClause
-  }
-}
-
-object JDBCBasedDataConnector extends Loggable {
-  private val Database: String = "database"
-  private val TableName: String = "tablename"
-  private val Where: String = "where"
-  private val Url: String = "url"
-  private val User: String = "user"
-  private val Password: String = "password"
-  private val Driver: String = "driver"
-
-  private val DefaultDriver = "com.mysql.jdbc.Driver"
-  private val DefaultDatabase = "default"
-  private val EmptyString = ""
 
   /**
    * @param driver JDBC driver class name
@@ -132,4 +73,48 @@ object JDBCBasedDataConnector extends Loggable {
         false
     }
   }
+
+  override def validate(): Unit = {
+    require(url.nonEmpty, "JDBC connection: connection url is mandatory")
+    require(user.nonEmpty, "JDBC connection: user name is mandatory")
+    require(password.nonEmpty, "JDBC connection: password is mandatory")
+    require(tableName.nonEmpty, "JDBC connection: table is mandatory")
+    assert(isJDBCDriverLoaded(driver), s"JDBC driver $driver not present in classpath")
+  }
+
+  override protected def initializeConnector(): Unit = {}
+
+  override def readBatch(): Dataset[Row] = {
+    val dtSql = createSqlStmt()
+    val prop = new Properties()
+    prop.setProperty("user", user)
+    prop.setProperty("password", password)
+    prop.setProperty("driver", driver)
+
+    sparkSession.read.jdbc(url, s"($dtSql) as t", prop)
+  }
+
+  /**
+   * @return Return SQL statement with where condition if provided
+   */
+  private def createSqlStmt(): String = {
+    val tableClause = s"SELECT * FROM $fullTableName"
+    if (whereString.nonEmpty) {
+      s"$tableClause WHERE $whereString"
+    } else tableClause
+  }
+}
+
+object JDBCDataSource {
+  private val Database: String = "database"
+  private val TableName: String = "tablename"
+  private val Where: String = "where"
+  private val Url: String = "url"
+  private val User: String = "user"
+  private val Password: String = "password"
+  private val Driver: String = "driver"
+
+  private val DefaultDriver = "com.mysql.jdbc.Driver"
+  private val DefaultDatabase = "default"
+  private val EmptyString = ""
 }

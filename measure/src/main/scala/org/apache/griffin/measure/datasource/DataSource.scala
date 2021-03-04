@@ -17,88 +17,182 @@
 
 package org.apache.griffin.measure.datasource
 
-import org.apache.spark.sql._
+import java.util.concurrent.atomic.AtomicLong
+
+import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 import org.apache.griffin.measure.Loggable
 import org.apache.griffin.measure.configuration.dqdefinition.DataSourceParam
-import org.apache.griffin.measure.context.{DQContext, TimeRange}
-import org.apache.griffin.measure.datasource.cache.StreamingCacheClient
-import org.apache.griffin.measure.datasource.connector.DataConnector
-import org.apache.griffin.measure.utils.DataFrameUtil._
+import org.apache.griffin.measure.context.DQContext
+import org.apache.griffin.measure.execution.TableRegister
+import org.apache.griffin.measure.execution.builder.DQJobBuilder
+import org.apache.griffin.measure.step.builder.preproc.PreProcParamMaker
+import org.apache.griffin.measure.utils.SparkSessionFactory
 
 /**
- * data source
- * @param name     name of data source
- * @param dsParam  param of this data source
- * @param dataConnector       data connector
- * @param streamingCacheClientOpt   streaming data cache client option
+ * Data source
+ *
+ * This abstracts the implementations of Batch and Streaming data sources.
+ * Each implementation class must have a single constructor with exactly one parameter.
+ * This parameter is a [[DataSourceParam]].
+ *
+ * `Connector` is a type definition that allows a custom data source to initialize external connection(s)
+ *  objects which will be useful while reading data using `SparkSession`.
+ *  For example: Before reading from MongoDB a user might want to persist some metadata in a store like MySQL.
+ *  In this case, the devs can define say a Hikari JDBC Pool as a connector by overriding the `initializeConnector()`.
+ *
+ * @example {{{
+ *          class MyDataSource(dataSourceParam: DataSourceParam) extends DataSource { ... }
+ * }}}
  */
-case class DataSource(
-    name: String,
-    dsParam: DataSourceParam,
-    dataConnector: Option[DataConnector],
-    streamingCacheClientOpt: Option[StreamingCacheClient])
-    extends Loggable
-    with Serializable {
+abstract class DataSource(val dataSourceParam: DataSourceParam) extends Loggable {
+  type T
+  type Connector
 
-  val isBaseline: Boolean = dsParam.isBaseline
+  val sparkSession: SparkSession = SparkSessionFactory.getInstance
+  private val connector: Connector = initializeConnector()
 
-  def init(): Unit = {
-    dataConnector.foreach(_.init())
+  /**
+   * Ability to optionally create external connections.
+   * To override type `Connector` and `initializeConnector()` must be overridden. See example below,
+   *
+   * @example {{{
+   *          class MyDataSource(dataSourceParam: DataSourceParam) extends DataSource {
+   *                override type Connector = HikariDataSource
+   *
+   *                override def initializeConnector(): Connector = {
+   *                    // Implementation for Connector
+   *                    val myConn: HikariDataSource = ???
+   *                    return myConn
+   *                }
+   *
+   *                override read(): Dataset[T] {
+   *                    // User connector
+   *
+   *                    val connector = getConnector
+   *
+   *                    ...
+   *                }
+   *          }
+   * }}}
+   * @return
+   */
+  protected def initializeConnector(): Connector
+
+  /**
+   * Gets the instance of `Connector`.
+   * @return instance of `Connector`
+   */
+  def getConnector: Connector = connector
+
+  /**
+   * Reads the external data source as a spark `Dataset`. This `Dataset` may be batch or streaming.
+   *
+   * @return `Dataset` of `T` type objects. For example
+   */
+  def read(context: DQContext): DataFrame
+
+  /**
+   * Perform validations on provided `DataSourceParam` which holds user defined data source configurations.
+   */
+  def validate(): Unit = {}
+
+  def preProcess(context: DQContext, ds: Dataset[T]): DataFrame = {
+    val suffix = context.contextId.id
+    val dcDfName = dataSourceParam.getDataFrameName("this")
+    val (preProcRules, thisTable) =
+      PreProcParamMaker.makePreProcRules(dataSourceParam.getPreProcRules, suffix, dcDfName)
+
+    TableRegister.registerTable(thisTable, ds)
+
+    // build job
+    val preProcJob = DQJobBuilder.buildDQJob(context, preProcRules)
+
+    // job execute
+    preProcJob.execute(context)
+
+    // out data
+    val outDf = context.sparkSession.table(s"`$thisTable`")
+
+    // clean context
+    context.clean()
+
+    outDf
+  }
+}
+
+/**
+ * Batch Data source
+ *
+ * This is an abstraction for batch data sources. Implementations must override `readBatch()`.
+ * Optionally, in case of some custom implementation, `initializeConnector()` may also be
+ * overridden to instantiate a connector.
+ */
+abstract class BatchDataSource(dataSourceParam: DataSourceParam)
+    extends DataSource(dataSourceParam) {
+
+  /**
+   * Reads the external data source as a spark `Dataset`.
+   * This `Dataset` must not be streaming.
+   *
+   * Use `read()` of `SparkSession`.
+   * @example {{{
+   *            val sparkSession: SparkSession = ???
+   *            sparkSession.read. ... . load()
+   * }}}
+   *
+   * @return `Dataset` of `T` type objects. For example
+   */
+  def readBatch(): Dataset[T]
+
+  override def read(context: DQContext): DataFrame = {
+    val dataset = readBatch()
+    preProcess(context, dataset)
+  }
+}
+
+/**
+ * Streaming Data source
+ *
+ * This is an abstraction for batch data sources. Implementations must override `readStream()`.
+ * Optionally, in case of some custom implementation, `initializeConnector()` may also be
+ * overridden to instantiate a connector.
+ */
+abstract class StreamingDataSource(dataSourceParam: DataSourceParam)
+    extends DataSource(dataSourceParam) {
+
+  /**
+   * Reads the external data source as a spark `Dataset` using structured streaming.
+   * This `Dataset` must streaming.
+   *
+   * Use `readStream()` of `SparkSession`.
+   * @example {{{
+   *            val sparkSession: SparkSession = ???
+   *            sparkSession.readStream. ... . load()
+   * }}}
+   *
+   * @return `Dataset` of `T` type objects. For example
+   */
+  def readStream(): Dataset[T]
+
+  override def read(context: DQContext): DataFrame = {
+    val dataset = readStream()
+    assert(dataset.isStreaming, "Dataset is not streaming.")
+
+    preProcess(context, dataset)
+  }
+}
+
+object DataSource {
+
+  private val counter: AtomicLong = new AtomicLong(0L)
+  private val head: String = "dc"
+
+  def genId: String = {
+    s"$head$increment"
   }
 
-  def loadData(context: DQContext): TimeRange = {
-    info(s"load data [$name]")
-    try {
-      val timestamp = context.contextId.timestamp
-      val (dfOpt, timeRange) = data(timestamp)
-      dfOpt match {
-        case Some(df) =>
-          context.runTimeTableRegister.registerTable(name, df)
-        case None =>
-          warn(s"Data source [$name] is null!")
-      }
-      timeRange
-    } catch {
-      case e: Throwable =>
-        error(s"load data source [$name] fails")
-        throw e
-    }
+  private def increment: Long = {
+    counter.incrementAndGet()
   }
-
-  private def data(timestamp: Long): (Option[DataFrame], TimeRange) = {
-    val batches = dataConnector.flatMap { dc =>
-      val (dfOpt, timeRange) = dc.data(timestamp)
-      dfOpt match {
-        case Some(_) => Some((dfOpt, timeRange))
-        case _ => None
-      }
-    }
-    val caches = streamingCacheClientOpt match {
-      case Some(dsc) => dsc.readData() :: Nil
-      case _ => Nil
-    }
-    val pairs = batches ++ caches
-
-    if (pairs.nonEmpty) {
-      pairs.reduce { (a, b) =>
-        (unionDfOpts(a._1, b._1), a._2.merge(b._2))
-      }
-    } else {
-      (None, TimeRange.emptyTimeRange)
-    }
-  }
-
-  def updateData(df: DataFrame): Unit = {
-    streamingCacheClientOpt.foreach(_.updateData(Some(df)))
-  }
-
-  def cleanOldData(): Unit = {
-    streamingCacheClientOpt.foreach(_.cleanOutTimeData())
-  }
-
-  def processFinish(): Unit = {
-    streamingCacheClientOpt.foreach(_.processFinish())
-  }
-
 }

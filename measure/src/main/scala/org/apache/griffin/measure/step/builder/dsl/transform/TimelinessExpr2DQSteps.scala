@@ -18,13 +18,11 @@
 package org.apache.griffin.measure.step.builder.dsl.transform
 
 import org.apache.griffin.measure.configuration.dqdefinition.RuleParam
-import org.apache.griffin.measure.configuration.enums.FlattenType.{
-  ArrayFlattenType,
-  DefaultFlattenType
-}
+import org.apache.griffin.measure.configuration.enums.FlattenType._
 import org.apache.griffin.measure.configuration.enums.OutputType._
 import org.apache.griffin.measure.configuration.enums.ProcessType._
 import org.apache.griffin.measure.context.DQContext
+import org.apache.griffin.measure.execution.TableRegister
 import org.apache.griffin.measure.step.DQStep
 import org.apache.griffin.measure.step.builder.ConstantColumns
 import org.apache.griffin.measure.step.builder.dsl.expr._
@@ -63,7 +61,7 @@ case class TimelinessExpr2DQSteps(context: DQContext, expr: Expr, ruleParam: Rul
     val procType = context.procType
     val timestamp = context.contextId.timestamp
 
-    if (!context.runTimeTableRegister.existsTable(sourceName)) {
+    if (!TableRegister.existsTable(sourceName)) {
       warn(s"[$timestamp] data source $sourceName not exists")
       Nil
     } else {

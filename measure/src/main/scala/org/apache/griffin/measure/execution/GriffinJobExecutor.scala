@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.griffin.measure.launch
+package org.apache.griffin.measure.execution
 
 import java.util.concurrent.TimeUnit
 
@@ -27,9 +27,9 @@ import org.apache.spark.sql.SparkSession
 import org.apache.griffin.measure.Loggable
 import org.apache.griffin.measure.configuration.dqdefinition._
 import org.apache.griffin.measure.configuration.enums.ProcessType
-import org.apache.griffin.measure.context._
+import org.apache.griffin.measure.context.DQContext
 import org.apache.griffin.measure.datasource.DataSourceFactory
-import org.apache.griffin.measure.job.builder.DQJobBuilder
+import org.apache.griffin.measure.execution.builder.DQJobBuilder
 import org.apache.griffin.measure.step.builder.udf.GriffinUDFAgent
 import org.apache.griffin.measure.utils.{CommonUtils, SparkSessionFactory}
 
@@ -37,6 +37,8 @@ case class GriffinJobExecutor(griffinConfig: GriffinConfig) extends Loggable {
 
   val appConfig: AppConfig = griffinConfig.appConfig
   val envConfig: EnvConfig = griffinConfig.envConfig
+
+  var dqContext: DQContext = _
 
   private def initializeSparkSession(): SparkSession = {
     val sparkParam = griffinConfig.envConfig.getSparkParam
@@ -58,41 +60,40 @@ case class GriffinJobExecutor(griffinConfig: GriffinConfig) extends Loggable {
 
     // close `Sink`s
     dqContext.getSinks.foreach(_.close())
-
-    // close `SparkSession`
-    SparkSessionFactory.close()
   }
 
   def execute(): Try[Boolean] = {
-    CommonUtils.timeThis({
-      // initialize `SparkSession`
-      implicit val sparkSession: SparkSession = initializeSparkSession()
+    CommonUtils.timeThis(
+      {
+        // initialize `SparkSession`
+        initializeSparkSession()
 
-      // get data sources
-      val dataSources =
-        DataSourceFactory.getDataSources(sparkSession, appConfig.getDataSources)
-      dataSources.foreach(_.init())
+        // get data sources
+        val dataSources = DataSourceFactory.getDataSources(appConfig.getDataSourceParams)
 
-      // initialize DQ Context
-      val procType = ProcessType.withNameWithDefault(appConfig.getProcType)
+        // initialize DQ Context
+        val procType = ProcessType.withNameWithDefault(appConfig.getProcType)
 
-      val contextId = ContextId(System.currentTimeMillis)
-      val dqContext: DQContext =
-        DQContext(contextId, appConfig.getName, dataSources, getSinkParams, procType)
+        dqContext = DQContext(
+          applicationName = appConfig.getName,
+          dataSources = dataSources,
+          sinkParams = getSinkParams,
+          procType = procType)
 
-      // initialize `Sink`s
-      dqContext.getSinks.foreach(_.open(sparkSession.sparkContext.applicationId))
+        // initialize `Sink`s
+        dqContext.getSinks.foreach(_.open())
 
-      // execute job
-      val dqJob = DQJobBuilder.buildDQJob(dqContext, appConfig.getEvaluateRule)
-      val result = dqJob.execute(dqContext)
+        // execute job
+        val dqJob = DQJobBuilder.buildDQJob(dqContext, appConfig.getEvaluateRule)
+        val result = dqJob.execute(dqContext)
 
-      // perform clean up
-      cleanup(dqContext)
+        // perform clean up
+        cleanup(dqContext)
 
-      // return result
-      result
-    }, TimeUnit.MILLISECONDS)
+        // return result
+        result
+      },
+      TimeUnit.MILLISECONDS)
   }
 
   /**

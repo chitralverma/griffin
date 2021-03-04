@@ -15,30 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.griffin.measure.datasource.cache
+package org.apache.griffin.measure.execution.builder
 
-import org.apache.spark.sql._
+import scala.util.{Failure, Success, Try}
 
-import org.apache.griffin.measure.datasource.TimestampStorage
+import org.apache.griffin.measure.context.DQContext
+import org.apache.griffin.measure.step.DQStep
 
-/**
- * data source cache in orc format
- */
-case class StreamingCacheOrcClient(
-    sparkSession: SparkSession,
-    param: Map[String, Any],
-    dsName: String,
-    index: Int,
-    timestampStorage: TimestampStorage)
-    extends StreamingCacheClient {
+case class DQJob(dqSteps: Seq[DQStep]) extends Serializable {
 
-  protected def writeDataFrame(dfw: DataFrameWriter[Row], path: String): Unit = {
-    info(s"write path: $path")
-    dfw.orc(path)
-  }
-
-  protected def readDataFrame(dfr: DataFrameReader, path: String): DataFrame = {
-    dfr.orc(path)
+  def execute(context: DQContext): Try[Boolean] = {
+    dqSteps
+      .map(_.execute(context))
+      .foldLeft(Try(true)) { (ret, stepResult) =>
+        (ret, stepResult) match {
+          case (Success(_), nextResult) => nextResult
+          case (Failure(_), _) => ret
+        }
+      }
   }
 
 }

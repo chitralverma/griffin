@@ -17,56 +17,130 @@
 
 package org.apache.griffin.measure.datasource
 
-import scala.util.Success
-
-import org.apache.spark.sql.SparkSession
+import scala.util.{Failure, Success, Try}
+import scala.util.matching.Regex
 
 import org.apache.griffin.measure.Loggable
 import org.apache.griffin.measure.configuration.dqdefinition.DataSourceParam
-import org.apache.griffin.measure.datasource.cache.StreamingCacheClientFactory
-import org.apache.griffin.measure.datasource.connector.DataConnectorFactory
+import org.apache.griffin.measure.datasource.impl._
+import org.apache.griffin.measure.utils.CommonUtils
 
+/**
+ * DataSourceFactory
+ *
+ * This code allows instantiation of [[DataSource]]s (Batch or Streaming).
+ */
 object DataSourceFactory extends Loggable {
 
-  def getDataSources(
-      sparkSession: SparkSession,
-      dataSources: Seq[DataSourceParam]): Seq[DataSource] = {
-    dataSources.zipWithIndex.flatMap { pair =>
-      val (param, index) = pair
-      getDataSource(sparkSession, param, index)
+  val HiveRegex: Regex = """^(?i)hive$""".r
+  val FileRegex: Regex = """^(?i)file$""".r
+  val KafkaRegex: Regex = """^(?i)kafka$""".r
+  val JDBCRegex: Regex = """^(?i)jdbc$""".r
+  val ElasticSearchRegex: Regex = """^(?i)elasticsearch$""".r
+  val CassandraRegex: Regex = """^(?i)cassandra$""".r
+
+  def getDataSources(dataSources: Seq[DataSourceParam]): Seq[DataSource] = {
+    dataSources.map((param: DataSourceParam) => getDataSource(param))
+  }
+
+  /**
+   * Instantiate a Data Source (batch or streaming based on user defined configuration).
+   *
+   * @param dataSourceParam data source param which holds the user defined configuration
+   * @return [[DataSource]] instance
+   */
+  private def getDataSource(dataSourceParam: DataSourceParam): DataSource = {
+    Try {
+      val cls = getDataSourceClass(dataSourceParam)
+
+      if (dataSourceParam.getIsStreaming) {
+        if (classOf[StreamingDataSource].isAssignableFrom(cls)) {
+          getDataSourceInstance[StreamingDataSource](cls, dataSourceParam)
+        } else {
+          val errorMsg =
+            s"Data Source with class name '${cls.getCanonicalName}' does not support streaming."
+          val exception = new IllegalStateException(errorMsg)
+          throw exception
+        }
+      } else if (classOf[BatchDataSource].isAssignableFrom(cls)) {
+        getDataSourceInstance[BatchDataSource](cls, dataSourceParam)
+      } else {
+        val errorMsg =
+          s"Class name '${cls.getCanonicalName}' cannot be instantiated as a valid Batch or Streaming data source."
+        val exception = new IllegalStateException(errorMsg)
+        throw exception
+      }
+    } match {
+      case Success(dataSource) => dataSource
+      case Failure(exception) =>
+        error(
+          s"""Exception occurred while getting data source with name '${dataSourceParam.getName}'
+             |and type '${dataSourceParam.getType}'""".stripMargin,
+          exception)
+        throw exception
     }
   }
 
-  private def getDataSource(
-      sparkSession: SparkSession,
-      dataSourceParam: DataSourceParam,
-      index: Int): Option[DataSource] = {
-    val name = dataSourceParam.getName
-    val timestampStorage = TimestampStorage()
+  /**
+   * Returns a Data Source class corresponding to the type defined in the configuration.
+   * If type does not match any of the internal types (regexes), then its assumed to be class name.
+   *
+   * [Regex -> Class] mapping of all internally supported data sources must be added as a `case`.
+   *
+   * Note: These classes must exist on Griffin Class path. To do this users can set
+   * `spark,jars` in spark config section of env config.
+   *
+   * @param dataSourceParam data source param
+   * @return [[Class]] of the data source
+   */
+  private def getDataSourceClass(dataSourceParam: DataSourceParam): Class[_] = {
+    val dataSourceType = dataSourceParam.getType
 
-    // for streaming data cache
-    val streamingCacheClientOpt = StreamingCacheClientFactory.getClientOpt(
-      sparkSession,
-      dataSourceParam.getCheckpointOpt,
-      name,
-      index,
-      timestampStorage)
+    Try {
+      dataSourceType match {
+        case HiveRegex() => classOf[HiveDataSource]
+        case FileRegex() => classOf[FileDataSource]
+        case ElasticSearchRegex() => classOf[ElasticsearchDataSource]
+        case JDBCRegex() => classOf[JDBCDataSource]
+        case CassandraRegex() => classOf[CassandraDataSource]
+        case className => Class.forName(className, true, CommonUtils.getContextOrMainClassLoader)
+      }
+    } match {
+      case Failure(e: ClassNotFoundException) =>
+        error(
+          s"Class for data source of type '$dataSourceType' was not found on the classpath.",
+          e)
+        throw e
+      case Failure(exception) =>
+        error(s"Unable to initialize data source of type '$dataSourceType'", exception)
+        throw exception
+      case Success(cls) => cls
+    }
+  }
 
-    val connectorParamsOpt = dataSourceParam.getConnector
+  /**
+   * Creates an instance of the data source based on the class.
+   *
+   * @param dataSourceParam data source param
+   * @param cls [[Class]] of the data source
+   * @return A new instance of the data source
+   */
+  private def getDataSourceInstance[C](cls: Class[_], dataSourceParam: DataSourceParam): C = {
+    debug(s"Attempting to instantiate class with name ${cls.getCanonicalName}")
 
-    connectorParamsOpt match {
-      case Some(connectorParam) =>
-        val dataConnectors = DataConnectorFactory.getDataConnector(
-          sparkSession,
-          connectorParam,
-          timestampStorage,
-          streamingCacheClientOpt) match {
-          case Success(connector) => Some(connector)
-          case _ => None
-        }
-
-        Some(DataSource(name, dataSourceParam, dataConnectors, streamingCacheClientOpt))
-      case None => None
+    Try(
+      cls
+        .getConstructor(classOf[DataSourceParam])
+        .newInstance(dataSourceParam)
+        .asInstanceOf[C]) match {
+      case Success(c) =>
+        info(s"Successfully instantiated data source with name '${dataSourceParam.getName}'")
+        c
+      case Failure(exception) =>
+        error(
+          s"Error encountered while instantiating data source with name '${dataSourceParam.getName}'",
+          exception)
+        throw exception
     }
   }
 

@@ -15,66 +15,48 @@
  * limitations under the License.
  */
 
-package org.apache.griffin.measure.context
+package org.apache.griffin.measure.execution
 
 import scala.collection.mutable.{Set => MutableSet}
 
-import org.apache.spark.sql._
+import org.apache.spark.sql.Dataset
 
 import org.apache.griffin.measure.Loggable
+import org.apache.griffin.measure.utils.SparkSessionFactory
 
-/**
- * register table name
- */
-trait TableRegister extends Loggable with Serializable {
+object TableRegister extends Loggable with Serializable {
 
-  protected val tables: MutableSet[String] = MutableSet()
+  private val tables: MutableSet[String] = MutableSet()
 
-  def registerTable(name: String): Unit = {
-    tables += name
+  def registerTable[T](name: String, df: Dataset[T]): Unit = {
+    griffinLogger.info(s"Registering data set with name '$name'")
+    tables.add(name)
+    df.createOrReplaceTempView(name)
   }
 
   def existsTable(name: String): Boolean = {
+    griffinLogger.info(s"Checking if data set with name '$name' exists")
     tables.exists(_.equals(name))
-  }
-
-  def unregisterTable(name: String): Unit = {
-    if (existsTable(name)) tables -= name
-  }
-  def unregisterAllTables(): Unit = {
-    tables.clear
   }
 
   def getTables: Set[String] = {
     tables.toSet
   }
 
-}
+  def unregisterTable(name: String): Unit = {
+    griffinLogger.info(s"Un registering data set with name '$name'")
 
-/**
- * register table name when building dq job
- */
-case class CompileTableRegister() extends TableRegister {}
-
-/**
- * register table name and create temp view during calculation
- */
-case class RunTimeTableRegister(@transient sparkSession: SparkSession) extends TableRegister {
-
-  def registerTable(name: String, df: DataFrame): Unit = {
-    registerTable(name)
-    df.createOrReplaceTempView(name)
-  }
-
-  override def unregisterTable(name: String): Unit = {
     if (existsTable(name)) {
-      sparkSession.catalog.dropTempView(name)
-      tables -= name
+      SparkSessionFactory.getInstance.catalog.dropTempView(name)
+      tables.remove(name)
     }
   }
-  override def unregisterAllTables(): Unit = {
+
+  def unregisterAllTables(): Unit = {
+    griffinLogger.info(s"Un registering all data sets")
+
     val uts = getTables
-    uts.foreach(t => sparkSession.catalog.dropTempView(t))
+    uts.foreach(t => SparkSessionFactory.getInstance.catalog.dropTempView(t))
     tables.clear
   }
 

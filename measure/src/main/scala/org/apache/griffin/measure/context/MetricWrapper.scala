@@ -31,7 +31,7 @@ case class MetricWrapper(name: String, applicationId: String) extends Serializab
 
   val metrics: MutableMap[Long, Map[String, Any]] = MutableMap()
 
-  def insertMetric(timestamp: Long, value: Map[String, Any]): Unit = {
+  def insertMetric(timestamp: Long, value: scala.collection.immutable.Map[String, Any]): Unit = {
     val newValue = metrics.get(timestamp) match {
       case Some(v) => v ++ value
       case _ => value

@@ -20,6 +20,7 @@ package org.apache.griffin.measure.step.transform
 import scala.util.Try
 
 import org.apache.griffin.measure.context.DQContext
+import org.apache.griffin.measure.execution.TableRegister
 import org.apache.griffin.measure.step.write.WriteStep
 
 /**
@@ -38,7 +39,7 @@ case class SparkSqlTransformStep[T <: WriteStep](
       val sparkSession = context.sparkSession
       val df = sparkSession.sql(rule)
       if (cache) context.dataFrameCache.cacheDataFrame(name, df)
-      context.runTimeTableRegister.registerTable(name, df)
+      TableRegister.registerTable(name, df)
       writeStepOpt match {
         case Some(writeStep) => writeStep.execute(context)
         case None => Try(true)

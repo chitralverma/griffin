@@ -21,10 +21,13 @@ import scala.util.{Failure, Success}
 
 import org.apache.griffin.measure.configuration.dqdefinition.{AppConfig, EnvConfig, GriffinConfig}
 import org.apache.griffin.measure.configuration.dqdefinition.reader.ParamReaderFactory.readParam
-import org.apache.griffin.measure.launch.GriffinJobExecutor
+import org.apache.griffin.measure.execution.GriffinJobExecutor
+import org.apache.griffin.measure.utils.SparkSessionFactory
 
 /**
- * application entrance
+ * Apache Griffin Application
+ *
+ * This acts as the starting point of a Data Quality Job.
  */
 object Application extends Loggable {
 
@@ -44,8 +47,12 @@ object Application extends Loggable {
 
     jobStatus match {
       case Success(result) => info("process run result: " + (if (result) "success" else "failed"))
-      case Failure(ex) => error(s"process run error: ${ex.getMessage}", ex)
+      case Failure(exception) =>
+        error(s"Fatal Exception occurred!", exception)
+        throw exception
     }
+
+    SparkSessionFactory.close()
   }
 
 }

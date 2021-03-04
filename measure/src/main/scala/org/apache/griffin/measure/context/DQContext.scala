@@ -17,13 +17,15 @@
 
 package org.apache.griffin.measure.context
 
-import org.apache.spark.sql.{Encoder, Encoders, SparkSession}
+import org.apache.spark.sql.{DataFrame, Encoder, Encoders, SparkSession}
 
 import org.apache.griffin.measure.configuration.dqdefinition._
 import org.apache.griffin.measure.configuration.enums.ProcessType._
 import org.apache.griffin.measure.configuration.enums.WriteMode
 import org.apache.griffin.measure.datasource._
+import org.apache.griffin.measure.execution.TableRegister
 import org.apache.griffin.measure.sink.{Sink, SinkFactory}
+import org.apache.griffin.measure.utils.SparkSessionFactory
 
 /**
  * dq context: the context of each calculation
@@ -31,33 +33,38 @@ import org.apache.griffin.measure.sink.{Sink, SinkFactory}
  * access the same spark session this app created
  */
 case class DQContext(
-    contextId: ContextId,
-    name: String,
+    contextIdOpt: Option[ContextId] = None,
+    applicationName: String,
     dataSources: Seq[DataSource],
     sinkParams: Seq[SinkParam],
-    procType: ProcessType)(@transient implicit val sparkSession: SparkSession) {
+    procType: ProcessType) {
 
-  val compileTableRegister: CompileTableRegister = CompileTableRegister()
-  val runTimeTableRegister: RunTimeTableRegister = RunTimeTableRegister(sparkSession)
+  val sparkSession: SparkSession = SparkSessionFactory.getInstance
+
+  val contextId: ContextId = contextIdOpt match {
+    case Some(x) => x
+    case None => ContextId(System.currentTimeMillis)
+  }
 
   val dataFrameCache: DataFrameCache = DataFrameCache()
 
-  val metricWrapper: MetricWrapper = MetricWrapper(name, sparkSession.sparkContext.applicationId)
+  val metricWrapper: MetricWrapper =
+    MetricWrapper(applicationName, sparkSession.sparkContext.applicationId)
   val writeMode: WriteMode = WriteMode.defaultMode(procType)
 
   val dataSourceNames: Seq[String] = {
     // sort data source names, put baseline data source name to the head
     val (blOpt, others) = dataSources.foldLeft((None: Option[String], Nil: Seq[String])) {
       (ret, ds) =>
+        val dsName = ds.dataSourceParam.getName
         val (opt, seq) = ret
-        if (opt.isEmpty && ds.isBaseline) (Some(ds.name), seq) else (opt, seq :+ ds.name)
+        if (opt.isEmpty) (Some(dsName), seq) else (opt, seq :+ dsName)
     }
     blOpt match {
       case Some(bl) => bl +: others
       case _ => others
     }
   }
-  dataSourceNames.foreach(name => compileTableRegister.registerTable(name))
 
   def getDataSourceName(index: Int): String = {
     if (dataSourceNames.size > index) dataSourceNames(index) else ""
@@ -66,17 +73,22 @@ case class DQContext(
   implicit val encoder: Encoder[String] = Encoders.STRING
   val functionNames: Seq[String] = sparkSession.catalog.listFunctions.map(_.name).collect.toSeq
 
-  val dataSourceTimeRanges: Map[String, TimeRange] = loadDataSources()
+  val dataSourceTimeRanges: Map[String, DataFrame] = loadDataSources()
 
-  def loadDataSources(): Map[String, TimeRange] = {
+  def loadDataSources(): Map[String, DataFrame] = {
     dataSources.map { ds =>
-      (ds.name, ds.loadData(this))
+      {
+        ds.validate()
+        val dsName = ds.dataSourceParam.getName
+        val df = ds.read(this)
+
+        TableRegister.registerTable(dsName, df)
+        (dsName, df)
+      }
     }.toMap
   }
 
-  printTimeRanges()
-
-  private val sinkFactory = SinkFactory(sinkParams, name)
+  private val sinkFactory = SinkFactory(sinkParams, applicationName)
   private val defaultSinks: Seq[Sink] = createSinks(contextId.timestamp)
 
   def getSinks(timestamp: Long): Seq[Sink] = {
@@ -93,28 +105,9 @@ case class DQContext(
     }
   }
 
-  def cloneDQContext(newContextId: ContextId): DQContext = {
-    DQContext(newContextId, name, dataSources, sinkParams, procType)(sparkSession)
-  }
-
   def clean(): Unit = {
-    compileTableRegister.unregisterAllTables()
-    runTimeTableRegister.unregisterAllTables()
-
     dataFrameCache.uncacheAllDataFrames()
     dataFrameCache.clearAllTrashDataFrames()
-  }
-
-  private def printTimeRanges(): Unit = {
-    if (dataSourceTimeRanges.nonEmpty) {
-      val timeRangesStr = dataSourceTimeRanges
-        .map { pair =>
-          val (name, timeRange) = pair
-          s"$name -> (${timeRange.begin}, ${timeRange.end}]"
-        }
-        .mkString(", ")
-      println(s"data source timeRanges: $timeRangesStr")
-    }
   }
 
 }

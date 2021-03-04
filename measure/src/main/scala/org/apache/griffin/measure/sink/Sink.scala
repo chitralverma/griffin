@@ -28,12 +28,19 @@ import org.apache.griffin.measure.Loggable
  */
 trait Sink extends Loggable with Serializable {
 
+  import org.apache.griffin.measure.utils.SparkSessionFactory
+
   val jobName: String
   val timeStamp: Long
 
   val config: Map[String, Any]
 
   val block: Boolean
+
+  /**
+   * Spark Application ID
+   */
+  val applicationID: String = SparkSessionFactory.getInstance.sparkContext.applicationId
 
   /**
    * Ensures that the pre-requisites (if any) of the Sink are met before opening it.
@@ -43,9 +50,8 @@ trait Sink extends Loggable with Serializable {
   /**
    * Allows initialization of the connection to the sink (if required).
    *
-   * @param applicationId Spark Application ID
    */
-  def open(applicationId: String): Unit = {}
+  def open(): Unit = {}
 
   /**
    * Allows clean up for the sink (if required).

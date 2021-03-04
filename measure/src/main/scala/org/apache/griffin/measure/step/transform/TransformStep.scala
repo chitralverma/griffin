@@ -18,8 +18,7 @@
 package org.apache.griffin.measure.step.transform
 
 import scala.collection.mutable
-import scala.concurrent.ExecutionContext
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success, Try}
 

@@ -17,9 +17,10 @@
 
 package org.apache.griffin.measure.step.write
 
+import scala.util.Try
+
 import org.apache.commons.lang.StringUtils
 import org.apache.spark.sql.DataFrame
-import scala.util.Try
 
 import org.apache.griffin.measure.context.DQContext
 
@@ -33,10 +34,9 @@ case class DataSourceUpdateWriteStep(dsName: String, inputName: String) extends 
 
   def execute(context: DQContext): Try[Boolean] = Try {
     getDataSourceCacheUpdateDf(context) match {
-      case Some(df) =>
+      case Some(_) =>
         context.dataSources
-          .find(ds => StringUtils.equals(ds.name, dsName))
-          .foreach(_.updateData(df))
+          .find(ds => StringUtils.equals(ds.dataSourceParam.getName, dsName))
       case _ =>
         warn(s"update $dsName from $inputName fails")
     }

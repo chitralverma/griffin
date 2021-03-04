@@ -24,6 +24,7 @@ import org.apache.griffin.measure.configuration.enums.FlattenType.DefaultFlatten
 import org.apache.griffin.measure.configuration.enums.OutputType._
 import org.apache.griffin.measure.configuration.enums.ProcessType._
 import org.apache.griffin.measure.context.DQContext
+import org.apache.griffin.measure.execution.TableRegister
 import org.apache.griffin.measure.step.DQStep
 import org.apache.griffin.measure.step.builder.ConstantColumns
 import org.apache.griffin.measure.step.builder.dsl.expr._
@@ -56,7 +57,7 @@ case class ProfilingExpr2DQSteps(context: DQContext, expr: Expr, ruleParam: Rule
     val procType = context.procType
     val timestamp = context.contextId.timestamp
 
-    if (!context.runTimeTableRegister.existsTable(sourceName)) {
+    if (!TableRegister.existsTable(sourceName)) {
       warn(s"[$timestamp] data source $sourceName not exists")
       Nil
     } else {

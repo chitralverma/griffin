@@ -15,11 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.griffin.measure.job.builder
+package org.apache.griffin.measure.execution.builder
 
 import org.apache.griffin.measure.configuration.dqdefinition._
 import org.apache.griffin.measure.context.DQContext
-import org.apache.griffin.measure.job._
 import org.apache.griffin.measure.step.builder.DQStepBuilder
 import org.apache.griffin.measure.step.write.MetricFlushStep
 
@@ -30,6 +29,7 @@ object DQJobBuilder {
 
   /**
    * build dq job with rule param
+   *
    * @param context              dq context
    * @param evaluateRuleParam    evaluate rule param
    * @return       dq job
@@ -46,10 +46,7 @@ object DQJobBuilder {
    * @return       dq job
    */
   def buildDQJob(context: DQContext, ruleParams: Seq[RuleParam]): DQJob = {
-    // build steps by datasources
-    val dsSteps = context.dataSources.flatMap { dataSource =>
-      DQStepBuilder.buildStepOptByDataSourceParam(context, dataSource.dsParam)
-    }
+
     // build steps by rules
     val ruleSteps = ruleParams.flatMap { ruleParam =>
       DQStepBuilder.buildStepOptByRuleParam(context, ruleParam)
@@ -57,7 +54,7 @@ object DQJobBuilder {
     // metric flush step
     val metricFlushStep = MetricFlushStep()
 
-    DQJob(dsSteps ++ ruleSteps :+ metricFlushStep)
+    DQJob(ruleSteps :+ metricFlushStep)
   }
 
 }

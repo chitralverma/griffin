@@ -15,19 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.griffin.measure.datasource.connector.batch
+package org.apache.griffin.measure.datasource.impl
 
 import scala.collection.mutable.{Map => MutableMap}
 import scala.util._
 
-import org.apache.spark.sql.{DataFrame, DataFrameReader, SparkSession}
+import org.apache.spark.sql.{DataFrameReader, Dataset, Row}
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types.StructType
 
 import org.apache.griffin.measure.Loggable
-import org.apache.griffin.measure.configuration.dqdefinition.DataConnectorParam
-import org.apache.griffin.measure.context.TimeRange
-import org.apache.griffin.measure.datasource.TimestampStorage
+import org.apache.griffin.measure.configuration.dqdefinition.DataSourceParam
+import org.apache.griffin.measure.datasource.BatchDataSource
 import org.apache.griffin.measure.utils.HdfsUtil
 import org.apache.griffin.measure.utils.ParamUtil._
 
@@ -52,20 +51,19 @@ import org.apache.griffin.measure.utils.ParamUtil._
  *  - `header` is false,
  *  - `format` is parquet
  */
-case class FileBasedDataConnector(
-    @transient sparkSession: SparkSession,
-    dcParam: DataConnectorParam,
-    timestampStorage: TimestampStorage)
-    extends BatchDataConnector {
+class FileDataSource(dataSourceParam: DataSourceParam) extends BatchDataSource(dataSourceParam) {
+  override type T = Row
+  override type Connector = Unit
 
-  import FileBasedDataConnector._
+  import FileDataSource._
 
-  val config: Map[String, Any] = dcParam.getConfig
+  val config: Map[String, Any] = dataSourceParam.getConfig
   val options: MutableMap[String, String] = MutableMap(
     config.getParamStringMap(Options, Map.empty).toSeq: _*)
 
   var format: String = config.getString(Format, DefaultFormat).toLowerCase
   val paths: Seq[String] = config.getStringArr(Paths, Nil)
+
   val schemaSeq: Seq[Map[String, String]] =
     config.getAnyRef[Seq[Map[String, String]]](Schema, Nil)
   val skipErrorPaths: Boolean = config.getBoolean(SkipErrorPaths, defValue = false)
@@ -74,16 +72,7 @@ case class FileBasedDataConnector(
     case Success(structType) if structType.fields.nonEmpty => Some(structType)
     case _ => None
   }
-
-  assert(
-    SupportedFormats.contains(format),
-    s"Invalid format '$format' specified. Must be one of ${SupportedFormats.mkString("['", "', '", "']")}")
-
-  if (format == "csv") validateCSVOptions()
-  if (format == "tsv") {
-    format = "csv"
-    options.getOrElseUpdate(Delimiter, TabDelimiter)
-  }
+  var validPaths: Seq[String] = getValidPaths(paths, skipErrorPaths)
 
   /**
    * Builds a [[StructType]] from the given schema string provided as `Schema` config.
@@ -102,6 +91,23 @@ case class FileBasedDataConnector(
 
       currentStruct.add(colName, colType, isNullable)
     })
+  }
+
+  override def validate(): Unit = {
+    assert(
+      SupportedFormats.contains(format),
+      s"Invalid format '$format' specified. Must be one of ${SupportedFormats.mkString("['", "', '", "']")}")
+
+    if (format.equalsIgnoreCase("avro") && sparkSession.version < "2.3.0") {
+      format = "com.databricks.spark.avro"
+    }
+
+    if (format == "csv") validateCSVOptions()
+
+    if (format == "tsv") {
+      format = "csv"
+      options.getOrElseUpdate(Delimiter, TabDelimiter)
+    }
   }
 
   /**
@@ -129,32 +135,19 @@ case class FileBasedDataConnector(
     }
   }
 
-  def data(ms: Long): (Option[DataFrame], TimeRange) = {
-    val validPaths = getValidPaths(paths, skipErrorPaths)
+  override protected def initializeConnector(): Unit = {}
 
-    val dfOpt = {
-      val dfOpt = Try(
-        sparkSession.read
-          .options(options)
-          .format(format)
-          .withSchemaIfAny(currentSchema)
-          .load(validPaths: _*))
-
-      dfOpt match {
-        case Success(_) =>
-        case Failure(exception) =>
-          griffinLogger.error("Error occurred while reading data set.", exception)
-      }
-
-      val preDfOpt = preProcess(dfOpt.toOption, ms)
-      preDfOpt
-    }
-
-    (dfOpt, TimeRange(ms, readTmst(ms)))
+  override def readBatch(): Dataset[Row] = {
+    sparkSession.read
+      .options(options)
+      .format(format)
+      .withSchemaIfAny(currentSchema)
+      .load(validPaths: _*)
   }
+
 }
 
-object FileBasedDataConnector extends Loggable {
+object FileDataSource extends Loggable {
   private val Format: String = "format"
   private val Paths: String = "paths"
   private val Options: String = "options"
@@ -169,7 +162,8 @@ object FileBasedDataConnector extends Loggable {
   private val TabDelimiter: String = "\t"
 
   private val DefaultFormat: String = SQLConf.DEFAULT_DATA_SOURCE_NAME.defaultValueString
-  private val SupportedFormats: Seq[String] = Seq("parquet", "orc", "avro", "text", "csv", "tsv")
+  private val SupportedFormats: Seq[String] =
+    Seq("parquet", "orc", "avro", "text", "csv", "tsv", "com.databricks.spark.avro")
 
   /**
    * Validates the existence of paths in a given sequence.

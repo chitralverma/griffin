@@ -17,18 +17,13 @@
 
 package org.apache.griffin.measure.step.write
 
+import scala.collection.immutable.{Map => HashMap}
 import scala.util.Try
 
 import org.apache.griffin.measure.configuration.enums.{SimpleMode, TimestampMode}
-import org.apache.griffin.measure.configuration.enums.FlattenType.{
-  ArrayFlattenType,
-  EntriesFlattenType,
-  FlattenType,
-  MapFlattenType
-}
+import org.apache.griffin.measure.configuration.enums.FlattenType._
 import org.apache.griffin.measure.context.DQContext
 import org.apache.griffin.measure.step.builder.ConstantColumns
-import org.apache.griffin.measure.utils.JsonUtil
 import org.apache.griffin.measure.utils.ParamUtil._
 
 /**
@@ -41,8 +36,8 @@ case class MetricWriteStep(
     writeTimestampOpt: Option[Long] = None)
     extends WriteStep {
 
-  val emptyMetricMap: Map[Long, Map[String, Any]] = Map[Long, Map[String, Any]]()
-  val emptyMap: Map[String, Any] = Map[String, Any]()
+  val emptyMetricMap: HashMap[Long, HashMap[String, Any]] = HashMap[Long, HashMap[String, Any]]()
+  val emptyMap: HashMap[String, Any] = HashMap.empty[String, Any]
 
   def execute(context: DQContext): Try[Boolean] = Try {
     val timestamp = writeTimestampOpt.getOrElse(context.contextId.timestamp)
@@ -52,10 +47,10 @@ case class MetricWriteStep(
 
     // get timestamp and normalize metric
     val writeMode = writeTimestampOpt.map(_ => SimpleMode).getOrElse(context.writeMode)
-    val timestampMetricMap: Map[Long, Map[String, Any]] = writeMode match {
+    val timestampMetricMap: HashMap[Long, HashMap[String, Any]] = writeMode match {
 
       case SimpleMode =>
-        val metrics: Map[String, Any] = flattenMetric(metricMaps, name, flattenType)
+        val metrics: HashMap[String, Any] = flattenMetric(metricMaps, name, flattenType)
         emptyMetricMap + (timestamp -> metrics)
 
       case TimestampMode =>
@@ -86,7 +81,7 @@ case class MetricWriteStep(
       val pdf = context.sparkSession.table(s"`$inputName`")
       val rows = pdf.collect()
       val columns = pdf.columns
-      if (rows.size > 0) {
+      if (rows.length > 0) {
         rows.map(_.getValuesMap(columns))
       } else Nil
     } catch {
@@ -99,15 +94,15 @@ case class MetricWriteStep(
   private def flattenMetric(
       metrics: Seq[Map[String, Any]],
       name: String,
-      flattenType: FlattenType): Map[String, Any] = {
+      flattenType: FlattenType): HashMap[String, Any] = {
     flattenType match {
       case EntriesFlattenType => metrics.headOption.getOrElse(emptyMap)
-      case ArrayFlattenType => Map[String, Any](name -> metrics)
+      case ArrayFlattenType => HashMap[String, Any](name -> metrics)
       case MapFlattenType =>
         val v = metrics.headOption.getOrElse(emptyMap)
-        Map[String, Any](name -> v)
+        HashMap[String, Any](name -> v)
       case _ =>
-        if (metrics.size > 1) Map[String, Any](name -> metrics)
+        if (metrics.size > 1) HashMap[String, Any](name -> metrics)
         else metrics.headOption.getOrElse(emptyMap)
     }
   }

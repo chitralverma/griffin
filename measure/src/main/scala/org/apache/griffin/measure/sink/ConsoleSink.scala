@@ -44,10 +44,10 @@ case class ConsoleSink(config: Map[String, Any], jobName: String, timeStamp: Lon
 
   def validate(): Boolean = true
 
-  override def open(applicationId: String): Unit = {
+  override def open(): Unit = {
     griffinLogger.info(
       s"Opened ConsoleSink for job with name '$jobName', " +
-        s"timestamp '$timeStamp' and applicationId '$applicationId'")
+        s"timestamp '$timeStamp' and applicationId '$applicationID'")
   }
 
   override def close(): Unit = {
