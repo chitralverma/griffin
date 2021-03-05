@@ -45,7 +45,7 @@ class TransformStepTest extends FlatSpec with Matchers with SparkSuiteBase with 
   }
 
   private def getDqContext(name: String = "test-context"): DQContext = {
-    DQContext(ContextId(System.currentTimeMillis), name, Nil, Nil, BatchProcessType)(spark)
+    DQContext(Some(ContextId(System.currentTimeMillis)), name, Nil, Nil, BatchProcessType)
   }
 
   /**

@@ -15,17 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.griffin.measure.datasource.connector.batch
+package org.apache.griffin.measure.datasource.impl
+
+import scala.util._
 
 import org.apache.spark.sql.types.StructType
 import org.scalatest.Matchers
 import org.testcontainers.elasticsearch.ElasticsearchContainer
 
 import org.apache.griffin.measure.SparkSuiteBase
-import org.apache.griffin.measure.configuration.dqdefinition.DataConnectorParam
-import org.apache.griffin.measure.datasource.TimestampStorage
+import org.apache.griffin.measure.configuration.dqdefinition.DataSourceParam
 
-class ElasticSearchDataConnectorTest extends SparkSuiteBase with Matchers {
+class ElasticsearchDataSourceTest extends SparkSuiteBase with Matchers {
 
   // ignorance flag that could skip cases
   private var ignoreCase: Boolean = false
@@ -37,11 +38,10 @@ class ElasticSearchDataConnectorTest extends SparkSuiteBase with Matchers {
   private final val INDEX1 = "bank"
   private final val INDEX2 = "car"
 
-  private final val timestampStorage = TimestampStorage()
-
   private final val dcParam =
-    DataConnectorParam(
-      conType = "es_dcp",
+    DataSourceParam(
+      name = "datasource",
+      conType = "elasticsearch",
       dataFrameName = "test_df",
       config = Map.empty,
       preProc = Nil)
@@ -81,16 +81,16 @@ class ElasticSearchDataConnectorTest extends SparkSuiteBase with Matchers {
     }
   }
 
-  "elastic search data connector" should "be able to read from embedded server" in {
+  "elastic search data source" should "be able to read from embedded server" in {
     if (!ignoreCase) {
       val configs = Map(
         "paths" -> Seq(INDEX1),
         "options" -> Map("es.nodes" -> "localhost", "es.port" -> ES_HTTP_PORT))
-      val dc = ElasticSearchDataConnector(spark, dcParam.copy(config = configs), timestampStorage)
-      val result = dc.data(1000L)
+      val dc = new ElasticsearchDataSource(dcParam.copy(config = configs))
+      val result = Try(dc.readBatch()).toOption
 
-      assert(result._1.isDefined)
-      assert(result._1.get.collect().length == 1000)
+      assert(result.isDefined)
+      assert(result.get.collect().length == 1000)
     }
   }
 
@@ -99,11 +99,11 @@ class ElasticSearchDataConnectorTest extends SparkSuiteBase with Matchers {
       val configs = Map(
         "paths" -> Seq(INDEX1, INDEX2),
         "options" -> Map("es.nodes" -> "localhost", "es.port" -> ES_HTTP_PORT))
-      val dc = ElasticSearchDataConnector(spark, dcParam.copy(config = configs), timestampStorage)
-      val result = dc.data(1000L)
+      val dc = new ElasticsearchDataSource(dcParam.copy(config = configs))
+      val result = Try(dc.readBatch()).toOption
 
-      assert(result._1.isDefined)
-      assert(result._1.get.collect().length == 1002)
+      assert(result.isDefined)
+      assert(result.get.collect().length == 1002)
 
       val expectedSchema = new StructType()
         .add("description", "string")
@@ -122,7 +122,7 @@ class ElasticSearchDataConnectorTest extends SparkSuiteBase with Matchers {
         .add("state", "string")
         .add("__tmst", "bigint", nullable = false)
 
-      result._1.get.schema.fields should contain theSameElementsAs expectedSchema.fields
+      result.get.schema.fields should contain theSameElementsAs expectedSchema.fields
     }
   }
 
@@ -132,18 +132,18 @@ class ElasticSearchDataConnectorTest extends SparkSuiteBase with Matchers {
         "paths" -> Seq(INDEX1, INDEX2),
         "options" -> Map("es.nodes" -> "localhost", "es.port" -> ES_HTTP_PORT),
         "selectionExprs" -> Seq("account_number", "age > 10 as is_adult"))
-      val dc = ElasticSearchDataConnector(spark, dcParam.copy(config = configs), timestampStorage)
-      val result = dc.data(1000L)
+      val dc = new ElasticsearchDataSource(dcParam.copy(config = configs))
+      val result = Try(dc.readBatch()).toOption
 
-      assert(result._1.isDefined)
-      assert(result._1.get.collect().length == 1002)
+      assert(result.isDefined)
+      assert(result.get.collect().length == 1002)
 
       val expectedSchema = new StructType()
         .add("account_number", "bigint")
         .add("is_adult", "boolean")
         .add("__tmst", "bigint", nullable = false)
 
-      result._1.get.schema.fields should contain theSameElementsAs expectedSchema.fields
+      result.get.schema.fields should contain theSameElementsAs expectedSchema.fields
     }
   }
 
@@ -154,17 +154,17 @@ class ElasticSearchDataConnectorTest extends SparkSuiteBase with Matchers {
         "options" -> Map("es.nodes" -> "localhost", "es.port" -> ES_HTTP_PORT),
         "selectionExprs" -> Seq("account_number"),
         "filterExprs" -> Seq("account_number < 10"))
-      val dc = ElasticSearchDataConnector(spark, dcParam.copy(config = configs), timestampStorage)
-      val result = dc.data(1000L)
+      val dc = new ElasticsearchDataSource(dcParam.copy(config = configs))
+      val result = Try(dc.readBatch()).toOption
 
-      assert(result._1.isDefined)
-      assert(result._1.get.collect().length == 10)
+      assert(result.isDefined)
+      assert(result.get.collect().length == 10)
 
       val expectedSchema = new StructType()
         .add("account_number", "bigint")
         .add("__tmst", "bigint", nullable = false)
 
-      result._1.get.schema.fields should contain theSameElementsAs expectedSchema.fields
+      result.get.schema.fields should contain theSameElementsAs expectedSchema.fields
     }
   }
 

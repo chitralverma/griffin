@@ -4,21 +4,22 @@
   "data.sources": [
     {
       "name": "source",
-      "baseline": true,
-      "connector": {
-        "type": "avro",
-        "config": {
-          "file.name": "src/test/resources/users_info_src.avro"
-        }
+      "type": "file",
+      "config": {
+        "format": "avro",
+        "paths": [
+          "src/test/resources/users_info_src.avro"
+        ]
       }
     },
     {
       "name": "target",
-      "connector": {
-        "type": "avro",
-        "config": {
-          "file.name": "src/test/resources/users_info_target.avro"
-        }
+      "type": "file",
+      "config": {
+        "format": "avro",
+        "paths": [
+          "src/test/resources/users_info_target.avro"
+        ]
       }
     }
   ],

@@ -31,7 +31,7 @@ trait SinkTestBase extends FlatSpec with Matchers with SparkSuiteBase with Logga
   var sinkParams: Seq[SinkParam]
 
   def getDqContext(name: String = "test-context"): DQContext = {
-    DQContext(ContextId(System.currentTimeMillis), name, Nil, sinkParams, BatchProcessType)(spark)
+    DQContext(Some(ContextId(System.currentTimeMillis)), name, Nil, sinkParams, BatchProcessType)
   }
 
   def createDataFrame(arr: Seq[Int]): DataFrame = {

@@ -15,95 +15,100 @@
  * limitations under the License.
  */
 
-package org.apache.griffin.measure.job
+package org.apache.griffin.measure
 
-import scala.reflect.ClassTag
-import scala.util.{Failure, Success, Try}
+import scala.util._
 
 import org.apache.spark.sql.AnalysisException
 
-import org.apache.griffin.measure.configuration.dqdefinition.EnvConfig
+import org.apache.griffin.measure.configuration.dqdefinition.{AppConfig, EnvConfig, GriffinConfig}
 import org.apache.griffin.measure.configuration.dqdefinition.reader.ParamReaderFactory
-import org.apache.griffin.measure.launch.batch.BatchDQApp
-import org.apache.griffin.measure.step.builder.udf.GriffinUDFAgent
+import org.apache.griffin.measure.execution.GriffinJobExecutor
 
-class BatchDQAppTest extends DQAppTest {
+class BatchGriffinJobExecutorTest extends SparkSuiteBase {
 
-  override def beforeAll(): Unit = {
-    super.beforeAll()
+  val envParam: EnvConfig =
+    ParamReaderFactory.readParam[EnvConfig](getConfigFilePath("/env-batch.json"))
 
-    envParam = ParamReaderFactory.readParam[EnvConfig](getConfigFilePath("/env-batch.json"))
-    sparkParam = envParam.getSparkParam
-
-    Try {
-      sparkParam.getConfig.foreach { case (k, v) => spark.conf.set(k, v) }
-      spark.conf.set("spark.app.name", "BatchDQApp Test")
-      spark.conf.set("spark.sql.crossJoin.enabled", "true")
-
-      val logLevel = getGriffinLogLevel
-      sc.setLogLevel(sparkParam.getLogLevel)
-      griffinLogger.setLevel(logLevel)
-
-      // register udf
-      GriffinUDFAgent.register(spark)
+  private def getConfigFilePath(fileName: String): String = {
+    try {
+      getClass.getResource(fileName).getFile
+    } catch {
+      case _: NullPointerException => throw new Exception(s"resource [$fileName] not found")
+      case ex: Throwable => throw ex
     }
   }
 
-  def runAndCheckResult(metrics: Map[String, Any]): Unit = {
-    dqApp.run match {
-      case Success(ret) => assert(ret)
-      case Failure(ex) =>
-        error(s"process run error: ${ex.getMessage}", ex)
-        throw ex
-    }
+  private def getGriffinJobExecutor(dqParamFile: String): GriffinJobExecutor = {
+    val appConfig = ParamReaderFactory.readParam[AppConfig](getConfigFilePath(dqParamFile))
+    val griffinConfig = GriffinConfig(envParam, appConfig)
 
-    // check Result Metrics
-    val dqContext = dqApp.asInstanceOf[BatchDQApp].dqContext
+    GriffinJobExecutor(griffinConfig)
+  }
+
+  def runAndCheckResult(executor: GriffinJobExecutor, metrics: Map[String, Any]): Unit = {
+    val executionResult: Try[Boolean] = executor.execute()
+    assert(executionResult.isSuccess, "Job execution failed.")
+
+    griffinLogger.info(metrics)
+
+    //    check Result Metrics
+    val dqContext = executor.dqContext
     val timestamp = dqContext.contextId.timestamp
-    val expectedMetrics =
-      Map(timestamp -> metrics)
+    val expectedMetrics = Map(timestamp -> metrics)
 
     dqContext.metricWrapper.metrics should equal(expectedMetrics)
   }
 
-  def runAndCheckException[T <: AnyRef](implicit classTag: ClassTag[T]): Unit = {
-    dqApp.run match {
+  def runAndCheckException(executor: GriffinJobExecutor, cls: Class[_]): Unit = {
+    val executionResult: Try[Boolean] = executor.execute()
+
+    executionResult match {
+      case Failure(exception) =>
+        assert(exception.getClass == cls, "Un expected exception was thrown.")
       case Success(_) =>
-        fail(
-          s"job ${dqApp.dqParam.getName} should not succeed, a ${classTag.toString} exception is expected.")
-      case Failure(ex) => assertThrows[T](throw ex)
+        assert(
+          executionResult.isFailure,
+          s"Job ${executor.appConfig.getName} should not succeed.")
     }
   }
 
   "accuracy batch job" should "work" in {
-    dqApp = initApp("/_accuracy-batch-griffindsl.json")
+    val dqParamFile = "/_accuracy-batch-griffindsl.json"
+    val executor = getGriffinJobExecutor(dqParamFile)
+
     val expectedMetrics = Map(
       "total_count" -> 50,
       "miss_count" -> 4,
       "matched_count" -> 46,
       "matchedFraction" -> 0.92)
 
-    runAndCheckResult(expectedMetrics)
+    runAndCheckResult(executor, expectedMetrics)
   }
 
   "completeness batch job" should "work" in {
-    dqApp = initApp("/_completeness-batch-griffindsl.json")
+    val dqParamFile = "/_completeness-batch-griffindsl.json"
+    val executor = getGriffinJobExecutor(dqParamFile)
+
     val expectedMetrics = Map("total" -> 50, "incomplete" -> 1, "complete" -> 49)
 
-    runAndCheckResult(expectedMetrics)
+    runAndCheckResult(executor, expectedMetrics)
   }
 
   "distinctness batch job" should "work" in {
-    dqApp = initApp("/_distinctness-batch-griffindsl.json")
+    val dqParamFile = "/_distinctness-batch-griffindsl.json"
+    val executor = getGriffinJobExecutor(dqParamFile)
 
     val expectedMetrics =
       Map("total" -> 50, "distinct" -> 49, "dup" -> Seq(Map("dup" -> 1, "num" -> 1)))
 
-    runAndCheckResult(expectedMetrics)
+    runAndCheckResult(executor, expectedMetrics)
   }
 
   "profiling batch job" should "work" in {
-    dqApp = initApp("/_profiling-batch-griffindsl.json")
+    val dqParamFile = "/_profiling-batch-griffindsl.json"
+    val executor = getGriffinJobExecutor(dqParamFile)
+
     val expectedMetrics = Map(
       "prof" -> Seq(
         Map("user_id" -> 10004, "cnt" -> 1),
@@ -121,11 +126,13 @@ class BatchDQAppTest extends DQAppTest {
         Map("user_id" -> 10009, "cnt" -> 1)),
       "post_group" -> Seq(Map("post_code" -> "94022", "cnt" -> 13)))
 
-    runAndCheckResult(expectedMetrics)
+    runAndCheckResult(executor, expectedMetrics)
   }
 
   "timeliness batch job" should "work" in {
-    dqApp = initApp("/_timeliness-batch-griffindsl.json")
+    val dqParamFile = "/_timeliness-batch-griffindsl.json"
+    val executor = getGriffinJobExecutor(dqParamFile)
+
     val expectedMetrics = Map(
       "total" -> 10,
       "avg" -> 276000,
@@ -136,19 +143,22 @@ class BatchDQAppTest extends DQAppTest {
         Map("step" -> 3, "cnt" -> 1),
         Map("step" -> 4, "cnt" -> 1)))
 
-    runAndCheckResult(expectedMetrics)
+    runAndCheckResult(executor, expectedMetrics)
   }
 
   "uniqueness batch job" should "work" in {
-    dqApp = initApp("/_uniqueness-batch-griffindsl.json")
+    val dqParamFile = "/_uniqueness-batch-griffindsl.json"
+    val executor = getGriffinJobExecutor(dqParamFile)
+
     val expectedMetrics = Map("total" -> 50, "unique" -> 48)
 
-    runAndCheckResult(expectedMetrics)
+    runAndCheckResult(executor, expectedMetrics)
   }
 
   "batch job" should "fail with exception caught due to invalid rules" in {
-    dqApp = initApp("/_profiling-batch-griffindsl_malformed.json")
+    val dqParamFile = "/_profiling-batch-griffindsl_malformed.json"
+    val executor = getGriffinJobExecutor(dqParamFile)
 
-    runAndCheckException[AnalysisException]
+    runAndCheckException(executor, classOf[AnalysisException])
   }
 }

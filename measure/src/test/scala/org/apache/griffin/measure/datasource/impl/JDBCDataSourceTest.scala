@@ -14,18 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.griffin.measure.datasource.connector.batch
+
+package org.apache.griffin.measure.datasource.impl
 
 import java.sql.DriverManager
 import java.util.Properties
 
+import scala.util._
+
 import org.scalatest.Matchers
 
+import org.apache.griffin.measure.configuration.dqdefinition.DataSourceParam
 import org.apache.griffin.measure.SparkSuiteBase
-import org.apache.griffin.measure.configuration.dqdefinition.DataConnectorParam
-import org.apache.griffin.measure.datasource.TimestampStorage
 
-class JDBCBasedDataConnectorTest extends SparkSuiteBase with Matchers {
+class JDBCDataSourceTest extends SparkSuiteBase with Matchers {
 
   val url = "jdbc:h2:mem:test"
   var conn: java.sql.Connection = _
@@ -51,11 +53,14 @@ class JDBCBasedDataConnectorTest extends SparkSuiteBase with Matchers {
     conn.commit()
   }
 
-  private final val dcParam =
-    DataConnectorParam("jdbc", "test_df", Map.empty[String, String], Nil)
-  private final val timestampStorage = TimestampStorage()
+  private final val dcParam = DataSourceParam(
+    name = "datasource",
+    conType = "jdbc",
+    dataFrameName = "test_df",
+    config = Map.empty,
+    preProc = Nil)
 
-  "JDBC based data connector" should "be able to read data from relational database" in {
+  "JDBC based data source" should "be able to read data from relational database" in {
     val configs = Map(
       "database" -> "griffin",
       "tablename" -> "employee",
@@ -63,13 +68,13 @@ class JDBCBasedDataConnectorTest extends SparkSuiteBase with Matchers {
       "user" -> "user",
       "password" -> "password",
       "driver" -> "org.h2.Driver")
-    val dc = JDBCBasedDataConnector(spark, dcParam.copy(config = configs), timestampStorage)
-    val result = dc.data(1000L)
-    assert(result._1.isDefined)
-    assert(result._1.get.collect().length == 2)
+    val dc = new JDBCDataSource(dcParam.copy(config = configs))
+    val result = Try(dc.readBatch()).toOption
+    assert(result.isDefined)
+    assert(result.get.collect().length == 2)
   }
 
-  "JDBC based data connector" should "be able to read data from relational database with where condition" in {
+  "JDBC based data source" should "be able to read data from relational database with where condition" in {
     val configs = Map(
       "database" -> "griffin",
       "tablename" -> "employee",
@@ -78,13 +83,13 @@ class JDBCBasedDataConnectorTest extends SparkSuiteBase with Matchers {
       "password" -> "password",
       "driver" -> "org.h2.Driver",
       "where" -> "id=1 and name='emp1'")
-    val dc = JDBCBasedDataConnector(spark, dcParam.copy(config = configs), timestampStorage)
-    val result = dc.data(1000L)
-    assert(result._1.isDefined)
-    assert(result._1.get.collect().length == 1)
+    val dc = new JDBCDataSource(dcParam.copy(config = configs))
+    val result = Try(dc.readBatch()).toOption
+    assert(result.isDefined)
+    assert(result.get.collect().length == 1)
   }
 
-  "JDBC data connector" should "have URL field in config" in {
+  "JDBC data source" should "have URL field in config" in {
     the[java.lang.IllegalArgumentException] thrownBy {
       val configs = Map(
         "database" -> "griffin",
@@ -92,11 +97,11 @@ class JDBCBasedDataConnectorTest extends SparkSuiteBase with Matchers {
         "user" -> "user",
         "password" -> "password",
         "driver" -> "org.h2.Driver")
-      JDBCBasedDataConnector(spark, dcParam.copy(config = configs), timestampStorage)
+      new JDBCDataSource(dcParam.copy(config = configs)).validate()
     } should have message "requirement failed: JDBC connection: connection url is mandatory"
   }
 
-  "JDBC data connector" should "have table name field in config" in {
+  "JDBC data source" should "have table name field in config" in {
     the[java.lang.IllegalArgumentException] thrownBy {
       val configs = Map(
         "database" -> "griffin",
@@ -104,11 +109,11 @@ class JDBCBasedDataConnectorTest extends SparkSuiteBase with Matchers {
         "user" -> "user",
         "password" -> "password",
         "driver" -> "org.h2.Driver")
-      JDBCBasedDataConnector(spark, dcParam.copy(config = configs), timestampStorage)
+      new JDBCDataSource(dcParam.copy(config = configs)).validate()
     } should have message "requirement failed: JDBC connection: table is mandatory"
   }
 
-  "JDBC data connector" should "have user name field in config" in {
+  "JDBC data source" should "have user name field in config" in {
     the[java.lang.IllegalArgumentException] thrownBy {
       val configs = Map(
         "database" -> "griffin",
@@ -116,11 +121,11 @@ class JDBCBasedDataConnectorTest extends SparkSuiteBase with Matchers {
         "tablename" -> "employee",
         "password" -> "password",
         "driver" -> "org.h2.Driver")
-      JDBCBasedDataConnector(spark, dcParam.copy(config = configs), timestampStorage)
+      new JDBCDataSource(dcParam.copy(config = configs)).validate()
     } should have message "requirement failed: JDBC connection: user name is mandatory"
   }
 
-  "JDBC data connector" should "have table password field in config" in {
+  "JDBC data source" should "have table password field in config" in {
     the[java.lang.IllegalArgumentException] thrownBy {
       val configs = Map(
         "database" -> "griffin",
@@ -128,11 +133,11 @@ class JDBCBasedDataConnectorTest extends SparkSuiteBase with Matchers {
         "tablename" -> "employee",
         "user" -> "user",
         "driver" -> "org.h2.Driver")
-      JDBCBasedDataConnector(spark, dcParam.copy(config = configs), timestampStorage)
+      new JDBCDataSource(dcParam.copy(config = configs)).validate()
     } should have message "requirement failed: JDBC connection: password is mandatory"
   }
 
-  "JDBC data connector" should "have driver provided in config in classpath" in {
+  "JDBC data source" should "have driver provided in config in classpath" in {
     the[AssertionError] thrownBy {
       val configs = Map(
         "database" -> "griffin",
@@ -141,7 +146,7 @@ class JDBCBasedDataConnectorTest extends SparkSuiteBase with Matchers {
         "user" -> "user",
         "password" -> "password",
         "driver" -> "org.postgresql.Driver")
-      JDBCBasedDataConnector(spark, dcParam.copy(config = configs), timestampStorage)
+      new JDBCDataSource(dcParam.copy(config = configs)).validate()
     }
   }
 

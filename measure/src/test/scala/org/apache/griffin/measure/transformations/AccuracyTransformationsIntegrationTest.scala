@@ -25,7 +25,7 @@ import org.apache.griffin.measure.configuration.dqdefinition._
 import org.apache.griffin.measure.configuration.enums.ProcessType.BatchProcessType
 import org.apache.griffin.measure.context.{ContextId, DQContext}
 import org.apache.griffin.measure.datasource.DataSourceFactory
-import org.apache.griffin.measure.job.builder.DQJobBuilder
+import org.apache.griffin.measure.execution.builder.DQJobBuilder
 
 case class AccuracyResult(total: Long, miss: Long, matched: Long, matchedFraction: Double)
 
@@ -82,8 +82,8 @@ class AccuracyTransformationsIntegrationTest extends FlatSpec with Matchers with
       expectedResult: AccuracyResult) = {
     val dqContext: DQContext = getDqContext(
       dataSourcesParam = List(
-        DataSourceParam(name = "source", connector = dataConnectorParam(tableName = sourceName)),
-        DataSourceParam(name = "target", connector = dataConnectorParam(tableName = targetName))))
+        createDataSourceParam("source", sourceName),
+        createDataSourceParam("target", targetName)))
 
     val accuracyRule = RuleParam(
       dslType = "griffin-dsl",
@@ -147,18 +147,18 @@ class AccuracyTransformationsIntegrationTest extends FlatSpec with Matchers with
   private def getDqContext(
       dataSourcesParam: Seq[DataSourceParam],
       name: String = "test-context"): DQContext = {
-    val dataSources = DataSourceFactory.getDataSources(spark, dataSourcesParam)
-    dataSources.foreach(_.init())
+    val dataSources = DataSourceFactory.getDataSources(dataSourcesParam)
+    dataSources.foreach(_.validate())
 
-    DQContext(ContextId(System.currentTimeMillis), name, dataSources, Nil, BatchProcessType)(
-      spark)
+    DQContext(Some(ContextId(System.currentTimeMillis)), name, dataSources, Nil, BatchProcessType)
   }
 
-  private def dataConnectorParam(tableName: String) = {
-    DataConnectorParam(
+  private def createDataSourceParam(name: String, tableName: String) = {
+    DataSourceParam(
+      name = name,
       conType = "HIVE",
       dataFrameName = null,
       config = Map("table.name" -> tableName),
-      preProc = null)
+      preProc = Nil)
   }
 }

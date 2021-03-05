@@ -5,20 +5,20 @@
   "data.sources": [
     {
       "name": "source",
-      "connector": {
-        "type": "avro",
-        "version": "1.7",
-        "dataframe.name": "this_table",
-        "config": {
-          "file.name": "src/test/resources/users_info_src.avro"
-        },
-        "pre.proc": [
-          {
-            "dsl.type": "spark-sql",
-            "rule": "select * from this_table where user_id < 10014"
-          }
+      "type": "file",
+      "dataframe.name": "this_table",
+      "config": {
+        "format": "avro",
+        "paths": [
+          "src/test/resources/users_info_src.avro"
         ]
-      }
+      },
+      "pre.proc": [
+        {
+          "dsl.type": "spark-sql",
+          "rule": "select * from this_table where user_id < 10014"
+        }
+      ]
     }
   ],
   "evaluate.rule": {

@@ -67,7 +67,7 @@ object DataSourceFactory extends Loggable {
       } else {
         val errorMsg =
           s"Class name '${cls.getCanonicalName}' cannot be instantiated as a valid Batch or Streaming data source."
-        val exception = new IllegalStateException(errorMsg)
+        val exception = new ClassCastException(errorMsg)
         throw exception
       }
     } match {

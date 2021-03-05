@@ -4,12 +4,12 @@
   "data.sources": [
     {
       "name": "source",
-      "connector": {
-        "type": "avro",
-        "version": "1.7",
-        "config": {
-          "file.name": "src/test/resources/timeliness_data.avro"
-        }
+      "type": "file",
+      "config": {
+        "format": "avro",
+        "paths": [
+          "src/test/resources/timeliness_data.avro"
+        ]
       }
     }
   ],

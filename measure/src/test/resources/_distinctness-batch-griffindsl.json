@@ -5,23 +5,23 @@
     {
       "name": "source",
       "baseline": true,
-      "connector": {
-        "type": "avro",
-        "version": "1.7",
-        "config": {
-          "file.name": "src/test/resources/users_info_src.avro"
-        }
+      "type": "file",
+      "config": {
+        "format": "avro",
+        "paths": [
+          "src/test/resources/users_info_src.avro"
+        ]
       }
     },
     {
       "name": "target",
       "baseline": true,
-      "connector": {
-        "type": "avro",
-        "version": "1.7",
-        "config": {
-          "file.name": "src/test/resources/users_info_src.avro"
-        }
+      "type": "file",
+      "config": {
+        "format": "avro",
+        "paths": [
+          "src/test/resources/users_info_target.avro"
+        ]
       }
     }
   ],

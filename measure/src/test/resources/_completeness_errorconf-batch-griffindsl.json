@@ -1,16 +1,14 @@
 {
   "data.sources": [
     {
-      "connector": {
-        "dataframe.name": "prof_table",
-        "config": {
-          "table.name": "efg",
-          "database": "abc",
-          "where": "`date`=\"20190825\""
-        },
-        "type": "hive"
-      },
-      "name": "source"
+      "name": "source",
+      "type": "hive",
+      "dataframe.name": "prof_table",
+      "config": {
+        "table.name": "efg",
+        "database": "abc",
+        "where": "`date`=\"20190825\""
+      }
     }
   ],
   "sinks": [
