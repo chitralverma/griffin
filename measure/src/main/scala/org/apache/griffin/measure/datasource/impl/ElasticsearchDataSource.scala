@@ -27,7 +27,7 @@ import org.apache.griffin.measure.datasource.BatchDataSource
 import org.apache.griffin.measure.utils.ParamUtil._
 
 /**
- * A batch data connector for ElasticSearch source with read support for multiple indices.
+ * A batch data source for ElasticSearch source with read support for multiple indices.
  *
  * Supported Configurations:
  *  - filterExprs : [[Seq]] of string expressions that act as where conditions (row filters)
@@ -35,7 +35,7 @@ import org.apache.griffin.measure.utils.ParamUtil._
  *  - options : [[Map]] of elasticsearch options. Refer to [[ConfigurationOptions]] for options
  *  - paths : [[Seq]] of elasticsearch paths (indexes) to read from
  *
- * Some defaults assumed by this connector (if not set) are as follows:
+ * Some defaults assumed by this source (if not set) are as follows:
  *  - `es.nodes` in options is 'localhost',
  *  - `es.port` in options is 9200
  *  - filterExprs is empty list
@@ -66,7 +66,7 @@ class ElasticsearchDataSource(dataSourceParam: DataSourceParam)
     MutableMap(config.getParamStringMap(Options, Map.empty).toSeq: _*)
   final val paths: String = config.getStringArr(Paths).map(_.trim).mkString(",") match {
     case s: String if s.isEmpty =>
-      griffinLogger.error(s"Mandatory configuration '$Paths' is either empty or not defined.")
+      error(s"Mandatory configuration '$Paths' is either empty or not defined.")
       throw new IllegalArgumentException()
     case s: String => s
   }

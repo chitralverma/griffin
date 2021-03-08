@@ -17,9 +17,13 @@
 
 package org.apache.griffin.measure.sink
 
-import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.DataFrame
+import scala.collection.mutable.{HashMap => MutableMap}
+import scala.util.Try
 
+import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.streaming.{OutputMode, StreamingQuery, Trigger}
+
+import org.apache.griffin.measure.configuration.dqdefinition.{AppConfig, SinkParam}
 import org.apache.griffin.measure.utils.JsonUtil
 import org.apache.griffin.measure.utils.ParamUtil._
 
@@ -32,39 +36,58 @@ import org.apache.griffin.measure.utils.ParamUtil._
  *  will be truncated and all cells will be aligned right. Default is true.
  *  - numRows : [[Int]] Number of rows to show. Default is 20.
  */
-case class ConsoleSink(config: Map[String, Any], jobName: String, timeStamp: Long) extends Sink {
+class ConsoleSink(val appConfig: AppConfig, val sinkParam: SinkParam)
+    extends BatchSink
+    with StreamingSink
+    with MetricSink {
 
-  val block: Boolean = true
+  private val OptionsStr: String = "options"
+  private val Truncate: String = "truncate"
+  private val NumberOfRows: String = "numRows"
+  private val StreamingOutputMode: String = "streamingOutputMode"
+  private val TriggerMs: String = "triggerMs"
 
-  val Truncate: String = "truncate"
-  val truncateRecords: Boolean = config.getBoolean(Truncate, defValue = true)
-
-  val NumberOfRows: String = "numRows"
-  val numRows: Int = config.getInt(NumberOfRows, 20)
-
-  def validate(): Boolean = true
+  private val numRows: Int = config.getInt(NumberOfRows, 20)
+  private val triggerValue: Long = config.getLong(TriggerMs, defValue = 0L)
+  private val sOutputMode: String =
+    config.getString(StreamingOutputMode, defValue = OutputMode.Update().toString)
+  val options: MutableMap[String, String] = MutableMap(
+    config.getParamStringMap(OptionsStr, Map.empty).toSeq: _*)
+  private val truncateRecords: Boolean =
+    Try(options.getOrElse(Truncate, "true").toBoolean).getOrElse(false)
 
   override def open(): Unit = {
-    griffinLogger.info(
-      s"Opened ConsoleSink for job with name '$jobName', " +
-        s"timestamp '$timeStamp' and applicationId '$applicationID'")
+    info(s"Opened ConsoleSink for job with name '$jobName' and applicationId '$applicationID'")
   }
 
   override def close(): Unit = {
-    griffinLogger.info(
-      s"Closed ConsoleSink for job with name '$jobName' and timestamp '$timeStamp'")
+    info(s"Closed ConsoleSink for job with name '$jobName'")
   }
 
-  override def sinkRecords(records: RDD[String], name: String): Unit = {}
-
-  override def sinkRecords(records: Iterable[String], name: String): Unit = {}
-
+  /**
+   * Implementation of persisting metrics.
+   */
   override def sinkMetrics(metrics: Map[String, Any]): Unit = {
-    griffinLogger.info(s"$jobName [$timeStamp] metrics:\n${JsonUtil.toJson(metrics)}")
+    info(s"Metrics for job with name '${appConfig.getName}':\n${JsonUtil.toJson(metrics)}")
   }
 
-  override def sinkBatchRecords(dataset: DataFrame, key: Option[String] = None): Unit = {
+  override def sinkBatchRecords(measureName: String, dataset: DataFrame): Unit = {
+    info(s"Records for measure with name '$measureName'")
     dataset.show(numRows, truncateRecords)
   }
 
+  /**
+   * Implementation of persisting records for streaming pipelines.
+   */
+  override def sinkStreamingRecords(dataset: DataFrame): StreamingQuery = {
+    assert(dataset.isStreaming, "The given dataset is not steaming.")
+
+    dataset.writeStream
+      .format("console")
+      .outputMode(sOutputMode)
+      .trigger(Trigger.ProcessingTime(triggerValue))
+      .options(options)
+      .queryName(sinkParam.getName)
+      .start()
+  }
 }

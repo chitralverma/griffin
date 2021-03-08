@@ -18,9 +18,9 @@
 package org.apache.griffin.measure.datasource
 
 import scala.util.{Failure, Success, Try}
-import scala.util.matching.Regex
 
 import org.apache.griffin.measure.Loggable
+import org.apache.griffin.measure.SourceSinkConstants._
 import org.apache.griffin.measure.configuration.dqdefinition.DataSourceParam
 import org.apache.griffin.measure.datasource.impl._
 import org.apache.griffin.measure.utils.CommonUtils
@@ -32,19 +32,12 @@ import org.apache.griffin.measure.utils.CommonUtils
  */
 object DataSourceFactory extends Loggable {
 
-  val HiveRegex: Regex = """^(?i)hive$""".r
-  val FileRegex: Regex = """^(?i)file$""".r
-  val KafkaRegex: Regex = """^(?i)kafka$""".r
-  val JDBCRegex: Regex = """^(?i)jdbc$""".r
-  val ElasticSearchRegex: Regex = """^(?i)elasticsearch$""".r
-  val CassandraRegex: Regex = """^(?i)cassandra$""".r
-
   def getDataSources(dataSources: Seq[DataSourceParam]): Seq[DataSource] = {
     dataSources.map((param: DataSourceParam) => getDataSource(param))
   }
 
   /**
-   * Instantiate a Data Source (batch or streaming based on user defined configuration).
+   * Instantiates a Data Source (batch or streaming based on user defined configuration).
    *
    * @param dataSourceParam data source param which holds the user defined configuration
    * @return [[DataSource]] instance
@@ -55,7 +48,7 @@ object DataSourceFactory extends Loggable {
 
       if (dataSourceParam.getIsStreaming) {
         if (classOf[StreamingDataSource].isAssignableFrom(cls)) {
-          getDataSourceInstance[StreamingDataSource](cls, dataSourceParam)
+          getDataSourceInstance(cls, dataSourceParam)
         } else {
           val errorMsg =
             s"Data Source with class name '${cls.getCanonicalName}' does not support streaming."
@@ -63,7 +56,7 @@ object DataSourceFactory extends Loggable {
           throw exception
         }
       } else if (classOf[BatchDataSource].isAssignableFrom(cls)) {
-        getDataSourceInstance[BatchDataSource](cls, dataSourceParam)
+        getDataSourceInstance(cls, dataSourceParam)
       } else {
         val errorMsg =
           s"Class name '${cls.getCanonicalName}' cannot be instantiated as a valid Batch or Streaming data source."
@@ -88,7 +81,7 @@ object DataSourceFactory extends Loggable {
    * [Regex -> Class] mapping of all internally supported data sources must be added as a `case`.
    *
    * Note: These classes must exist on Griffin Class path. To do this users can set
-   * `spark,jars` in spark config section of env config.
+   * `spark.jars` in spark config section of env config.
    *
    * @param dataSourceParam data source param
    * @return [[Class]] of the data source
@@ -121,18 +114,21 @@ object DataSourceFactory extends Loggable {
   /**
    * Creates an instance of the data source based on the class.
    *
+   * @throws ClassCastException when the provided class name does not extend [[DataSource]]
    * @param dataSourceParam data source param
    * @param cls [[Class]] of the data source
    * @return A new instance of the data source
    */
-  private def getDataSourceInstance[C](cls: Class[_], dataSourceParam: DataSourceParam): C = {
+  private def getDataSourceInstance(
+      cls: Class[_],
+      dataSourceParam: DataSourceParam): DataSource = {
     debug(s"Attempting to instantiate class with name ${cls.getCanonicalName}")
 
     Try(
       cls
         .getConstructor(classOf[DataSourceParam])
         .newInstance(dataSourceParam)
-        .asInstanceOf[C]) match {
+        .asInstanceOf[DataSource]) match {
       case Success(c) =>
         info(s"Successfully instantiated data source with name '${dataSourceParam.getName}'")
         c

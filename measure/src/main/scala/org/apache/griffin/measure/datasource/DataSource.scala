@@ -45,9 +45,11 @@ import org.apache.griffin.measure.utils.SparkSessionFactory
  *          class MyDataSource(dataSourceParam: DataSourceParam) extends DataSource { ... }
  * }}}
  */
-abstract class DataSource(val dataSourceParam: DataSourceParam) extends Loggable {
+trait DataSource extends Loggable {
   type T
   type Connector
+
+  val dataSourceParam: DataSourceParam
 
   val sparkSession: SparkSession = SparkSessionFactory.getInstance
   private val connector: Connector = initializeConnector()
@@ -114,9 +116,6 @@ abstract class DataSource(val dataSourceParam: DataSourceParam) extends Loggable
     // out data
     val outDf = context.sparkSession.table(s"`$thisTable`")
 
-    // clean context
-    context.clean()
-
     outDf
   }
 }
@@ -128,8 +127,7 @@ abstract class DataSource(val dataSourceParam: DataSourceParam) extends Loggable
  * Optionally, in case of some custom implementation, `initializeConnector()` may also be
  * overridden to instantiate a connector.
  */
-abstract class BatchDataSource(dataSourceParam: DataSourceParam)
-    extends DataSource(dataSourceParam) {
+trait BatchDataSource extends DataSource {
 
   /**
    * Reads the external data source as a spark `Dataset`.
@@ -158,8 +156,7 @@ abstract class BatchDataSource(dataSourceParam: DataSourceParam)
  * Optionally, in case of some custom implementation, `initializeConnector()` may also be
  * overridden to instantiate a connector.
  */
-abstract class StreamingDataSource(dataSourceParam: DataSourceParam)
-    extends DataSource(dataSourceParam) {
+trait StreamingDataSource extends DataSource {
 
   /**
    * Reads the external data source as a spark `Dataset` using structured streaming.

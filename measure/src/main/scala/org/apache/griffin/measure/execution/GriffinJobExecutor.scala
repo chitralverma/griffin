@@ -26,7 +26,6 @@ import org.apache.spark.sql.SparkSession
 
 import org.apache.griffin.measure.Loggable
 import org.apache.griffin.measure.configuration.dqdefinition._
-import org.apache.griffin.measure.configuration.enums.ProcessType
 import org.apache.griffin.measure.context.DQContext
 import org.apache.griffin.measure.datasource.DataSourceFactory
 import org.apache.griffin.measure.execution.builder.DQJobBuilder
@@ -55,45 +54,40 @@ case class GriffinJobExecutor(griffinConfig: GriffinConfig) extends Loggable {
   }
 
   private def cleanup(dqContext: DQContext): Unit = {
-    // clean context
-    dqContext.clean()
-
     // close `Sink`s
     dqContext.getSinks.foreach(_.close())
   }
 
   def execute(): Try[Boolean] = {
-    CommonUtils.timeThis(
-      {
-        // initialize `SparkSession`
-        initializeSparkSession()
+    CommonUtils.timeThis({
+      // initialize `SparkSession`
+      val sparkSession = initializeSparkSession()
 
-        // get data sources
-        val dataSources = DataSourceFactory.getDataSources(appConfig.getDataSourceParams)
+      // get data sources
+      val dataSources = DataSourceFactory.getDataSources(appConfig.getDataSourceParams)
 
-        // initialize DQ Context
-        val procType = ProcessType.withNameWithDefault(appConfig.getProcType)
+      // initialize DQ Context
+      dqContext =
+        DQContext(appConfig = appConfig, dataSources = dataSources, sinkParams = getSinkParams)
 
-        dqContext = DQContext(
-          applicationName = appConfig.getName,
-          dataSources = dataSources,
-          sinkParams = getSinkParams,
-          procType = procType)
+      // initialize `Sink`s
+      dqContext.getSinks.foreach(_.open())
 
-        // initialize `Sink`s
-        dqContext.getSinks.foreach(_.open())
+      // execute job
+      val dqJob = DQJobBuilder.buildDQJob(dqContext, appConfig.getEvaluateRule)
+      val result = dqJob.execute(dqContext)
 
-        // execute job
-        val dqJob = DQJobBuilder.buildDQJob(dqContext, appConfig.getEvaluateRule)
-        val result = dqJob.execute(dqContext)
+      // await streams if any
+      if (StreamingQueryRegister.getQueries.nonEmpty) {
+        sparkSession.streams.awaitAnyTermination()
+      }
 
-        // perform clean up
-        cleanup(dqContext)
+      // perform clean up
+      cleanup(dqContext)
 
-        // return result
-        result
-      },
-      TimeUnit.MILLISECONDS)
+      // return result
+      result
+    }, TimeUnit.MILLISECONDS)
   }
 
   /**

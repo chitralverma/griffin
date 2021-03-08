@@ -22,7 +22,6 @@ import org.scalatest._
 
 import org.apache.griffin.measure.SparkSuiteBase
 import org.apache.griffin.measure.configuration.dqdefinition._
-import org.apache.griffin.measure.configuration.enums.ProcessType.BatchProcessType
 import org.apache.griffin.measure.context.{ContextId, DQContext}
 import org.apache.griffin.measure.datasource.DataSourceFactory
 import org.apache.griffin.measure.execution.builder.DQJobBuilder
@@ -149,8 +148,9 @@ class AccuracyTransformationsIntegrationTest extends FlatSpec with Matchers with
       name: String = "test-context"): DQContext = {
     val dataSources = DataSourceFactory.getDataSources(dataSourcesParam)
     dataSources.foreach(_.validate())
+    val appConfig = AppConfig("testapp", Nil, null, Nil)
 
-    DQContext(Some(ContextId(System.currentTimeMillis)), name, dataSources, Nil, BatchProcessType)
+    DQContext(Some(ContextId(System.currentTimeMillis)), appConfig, dataSources, Nil)
   }
 
   private def createDataSourceParam(name: String, tableName: String) = {

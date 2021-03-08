@@ -17,11 +17,12 @@
 
 package org.apache.griffin.measure.step
 
-import org.scalatest._
 import scala.util.Try
 
+import org.scalatest._
+
 import org.apache.griffin.measure.{Loggable, SparkSuiteBase}
-import org.apache.griffin.measure.configuration.enums.ProcessType.BatchProcessType
+import org.apache.griffin.measure.configuration.dqdefinition.AppConfig
 import org.apache.griffin.measure.context.{ContextId, DQContext}
 import org.apache.griffin.measure.step.transform.TransformStep
 
@@ -45,7 +46,8 @@ class TransformStepTest extends FlatSpec with Matchers with SparkSuiteBase with 
   }
 
   private def getDqContext(name: String = "test-context"): DQContext = {
-    DQContext(Some(ContextId(System.currentTimeMillis)), name, Nil, Nil, BatchProcessType)
+    val appConfig = AppConfig("testapp", Nil, null, Nil)
+    DQContext(Some(ContextId(System.currentTimeMillis)), appConfig, Nil, Nil)
   }
 
   /**

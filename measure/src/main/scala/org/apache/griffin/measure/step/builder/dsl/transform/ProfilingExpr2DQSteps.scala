@@ -54,7 +54,7 @@ case class ProfilingExpr2DQSteps(context: DQContext, expr: Expr, ruleParam: Rule
     }
     val fromClause = profilingExpr.fromClauseOpt.getOrElse(FromClause(sourceName)).desc
 
-    val procType = context.procType
+    val procType = BatchProcessType
     val timestamp = context.contextId.timestamp
 
     if (!TableRegister.existsTable(sourceName)) {

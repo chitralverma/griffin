@@ -56,7 +56,7 @@ case class AccuracyExpr2DQSteps(context: DQContext, expr: Expr, ruleParam: RuleP
     val targetName = details.getString(_target, context.getDataSourceName(1))
     val analyzer = AccuracyAnalyzer(accuracyExpr, sourceName, targetName)
 
-    val procType = context.procType
+    val procType = BatchProcessType
     val timestamp = context.contextId.timestamp
 
     if (!TableRegister.existsTable(sourceName)) {

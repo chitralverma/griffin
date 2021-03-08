@@ -61,7 +61,7 @@ case class DistinctnessExpr2DQSteps(context: DQContext, expr: Expr, ruleParam: R
     val targetName = details.getString(_target, context.getDataSourceName(1))
     val analyzer = DistinctnessAnalyzer(distinctnessExpr, sourceName)
 
-    val procType = context.procType
+    val procType = BatchProcessType
     val timestamp = context.contextId.timestamp
 
     if (!TableRegister.existsTable(sourceName)) {

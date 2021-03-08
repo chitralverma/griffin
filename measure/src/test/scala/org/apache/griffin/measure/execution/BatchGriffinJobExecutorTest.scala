@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.griffin.measure
+package org.apache.griffin.measure.execution
 
 import scala.util._
 
@@ -23,7 +23,7 @@ import org.apache.spark.sql.AnalysisException
 
 import org.apache.griffin.measure.configuration.dqdefinition.{AppConfig, EnvConfig, GriffinConfig}
 import org.apache.griffin.measure.configuration.dqdefinition.reader.ParamReaderFactory
-import org.apache.griffin.measure.execution.GriffinJobExecutor
+import org.apache.griffin.measure.SparkSuiteBase
 
 class BatchGriffinJobExecutorTest extends SparkSuiteBase {
 

@@ -160,8 +160,6 @@ class ParamEnumReaderSpec extends GriffinTestBase {
     import org.apache.griffin.measure.configuration.enums.SinkType._
     var dqConfig = AppConfig(
       "test",
-      1234,
-      "",
       Nil,
       mock(classOf[EvaluateRuleParam]),
       List(
@@ -176,12 +174,11 @@ class ParamEnumReaderSpec extends GriffinTestBase {
         "mongo",
         "hdfs"))
     dqConfig.getValidSinkTypes should be(Seq(Console, ElasticSearch, MongoDB, Hdfs))
-    dqConfig =
-      AppConfig("test", 1234, "", Nil, mock(classOf[EvaluateRuleParam]), List("Consol", "Logg"))
+    dqConfig = AppConfig("test", Nil, mock(classOf[EvaluateRuleParam]), List("Consol", "Logg"))
     dqConfig.getValidSinkTypes should not be Seq(Console)
     dqConfig.getValidSinkTypes should be(Seq())
 
-    dqConfig = AppConfig("test", 1234, "", Nil, mock(classOf[EvaluateRuleParam]), List(""))
+    dqConfig = AppConfig("test", Nil, mock(classOf[EvaluateRuleParam]), List(""))
     dqConfig.getValidSinkTypes should be(Nil)
   }
 

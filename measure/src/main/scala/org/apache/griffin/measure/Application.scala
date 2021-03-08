@@ -46,7 +46,8 @@ object Application extends Loggable {
     val jobStatus = GriffinJobExecutor(griffinConfig).execute()
 
     jobStatus match {
-      case Success(result) => info("process run result: " + (if (result) "success" else "failed"))
+      case Success(result) =>
+        info("process run result: " + (if (result) "success" else "failed"))
       case Failure(exception) =>
         error(s"Fatal Exception occurred!", exception)
         throw exception

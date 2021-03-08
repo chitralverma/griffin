@@ -22,36 +22,22 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include
 import org.apache.commons.lang.StringUtils
 
 import org.apache.griffin.measure.configuration.enums._
-import org.apache.griffin.measure.configuration.enums.DqType._
-import org.apache.griffin.measure.configuration.enums.DslType.{DslType, GriffinDsl}
-import org.apache.griffin.measure.configuration.enums.FlattenType.{
-  DefaultFlattenType,
-  FlattenType
-}
-import org.apache.griffin.measure.configuration.enums.OutputType.{OutputType, UnknownOutputType}
-import org.apache.griffin.measure.configuration.enums.SinkType.SinkType
 
 /**
  * dq param
  * @param name           name of dq measurement (must)
- * @param timestamp      default timestamp of measure in batch mode (optional)
- * @param procType       batch mode or streaming mode (must)
  * @param dataSources    data sources (must)
  * @param evaluateRule   dq measurement (must)
  * @param sinks          sink types (optional, by default will be elasticsearch)
  */
 @JsonInclude(Include.NON_NULL)
 case class AppConfig(
-    @JsonProperty("name") private val name: String,
-    @JsonProperty("timestamp") private val timestamp: Long,
-    @JsonProperty("process.type") private val procType: String,
-    @JsonProperty("data.sources") private val dataSources: List[DataSourceParam],
-    @JsonProperty("evaluate.rule") private val evaluateRule: EvaluateRuleParam,
-    @JsonProperty("sinks") private val sinks: List[String] = Nil)
+    @JsonProperty("name") name: String,
+    @JsonProperty("data.sources") dataSources: List[DataSourceParam],
+    @JsonProperty("evaluate.rule") evaluateRule: EvaluateRuleParam,
+    @JsonProperty("sinks") sinks: List[String] = Nil)
     extends Param {
   def getName: String = name
-  def getTimestampOpt: Option[Long] = if (timestamp != 0) Some(timestamp) else None
-  def getProcType: String = procType
   def getDataSourceParams: Seq[DataSourceParam] = {
     dataSources
       .foldLeft((Nil: Seq[DataSourceParam], Set[String]())) { (ret, ds) =>
@@ -64,11 +50,10 @@ case class AppConfig(
   }
   def getEvaluateRule: EvaluateRuleParam = evaluateRule
   def getSinkNames: Seq[String] = sinks
-  def getValidSinkTypes: Seq[SinkType] = SinkType.validSinkTypes(sinks)
+  def getValidSinkTypes: Seq[SinkType.SinkType] = SinkType.validSinkTypes(sinks)
 
   def validate(): Unit = {
     assert(StringUtils.isNotBlank(name), "dq config name should not be blank")
-    assert(StringUtils.isNotBlank(procType), "process.type should not be blank")
     assert(dataSources != null, "data.sources should not be null")
     assert(evaluateRule != null, "evaluate.rule should not be null")
     getDataSourceParams.foreach(_.validate())
@@ -149,9 +134,10 @@ case class RuleParam(
     @JsonProperty("out") private val outputs: List[RuleOutputParam] = null,
     @JsonProperty("error.confs") private val errorConfs: List[RuleErrorConfParam] = null)
     extends Param {
-  def getDslType: DslType =
-    if (dslType != null) DslType.withNameWithDefault(dslType) else GriffinDsl
-  def getDqType: DqType = if (dqType != null) DqType.withNameWithDefault(dqType) else Unknown
+  def getDslType: DslType.DslType =
+    if (dslType != null) DslType.withNameWithDefault(dslType) else DslType.GriffinDsl
+  def getDqType: DqType.DqType =
+    if (dqType != null) DqType.withNameWithDefault(dqType) else DqType.Unknown
   def getCache: Boolean = if (cache) cache else false
 
   def getInDfName(defName: String = ""): String = if (inDfName != null) inDfName else defName
@@ -160,7 +146,7 @@ case class RuleParam(
   def getDetails: Map[String, Any] = if (details != null) details else Map[String, Any]()
 
   def getOutputs: Seq[RuleOutputParam] = if (outputs != null) outputs else Nil
-  def getOutputOpt(tp: OutputType): Option[RuleOutputParam] =
+  def getOutputOpt(tp: OutputType.OutputType): Option[RuleOutputParam] =
     getOutputs.find(_.getOutputType == tp)
 
   def getErrorConfs: Seq[RuleErrorConfParam] = if (errorConfs != null) errorConfs else Nil
@@ -184,7 +170,7 @@ case class RuleParam(
 
   def validate(): Unit = {
     assert(
-      !(getDslType.equals(GriffinDsl) && getDqType.equals(Unknown)),
+      !(getDslType.equals(DslType.GriffinDsl) && getDqType.equals(DqType.Unknown)),
       "unknown dq type for griffin dsl")
 
     getOutputs.foreach(_.validate())
@@ -204,14 +190,14 @@ case class RuleOutputParam(
     @JsonProperty("name") private val name: String,
     @JsonProperty("flatten") private val flatten: String)
     extends Param {
-  def getOutputType: OutputType = {
+  def getOutputType: OutputType.OutputType = {
     if (outputType != null) OutputType.withNameWithDefault(outputType)
-    else UnknownOutputType
+    else OutputType.UnknownOutputType
   }
   def getNameOpt: Option[String] = Some(name).filter(StringUtils.isNotBlank)
-  def getFlatten: FlattenType = {
+  def getFlatten: FlattenType.FlattenType = {
     if (StringUtils.isNotBlank(flatten)) FlattenType.withNameWithDefault(flatten)
-    else DefaultFlattenType
+    else FlattenType.DefaultFlattenType
   }
 
   def validate(): Unit = {}

@@ -29,13 +29,13 @@ object TableRegister extends Loggable with Serializable {
   private val tables: MutableSet[String] = MutableSet()
 
   def registerTable[T](name: String, df: Dataset[T]): Unit = {
-    griffinLogger.info(s"Registering data set with name '$name'")
+    debug(s"Registering data set with name '$name'")
     tables.add(name)
     df.createOrReplaceTempView(name)
   }
 
   def existsTable(name: String): Boolean = {
-    griffinLogger.info(s"Checking if data set with name '$name' exists")
+    debug(s"Checking if data set with name '$name' exists")
     tables.exists(_.equals(name))
   }
 
@@ -44,7 +44,7 @@ object TableRegister extends Loggable with Serializable {
   }
 
   def unregisterTable(name: String): Unit = {
-    griffinLogger.info(s"Un registering data set with name '$name'")
+    debug(s"Un registering data set with name '$name'")
 
     if (existsTable(name)) {
       SparkSessionFactory.getInstance.catalog.dropTempView(name)
@@ -53,7 +53,7 @@ object TableRegister extends Loggable with Serializable {
   }
 
   def unregisterAllTables(): Unit = {
-    griffinLogger.info(s"Un registering all data sets")
+    debug(s"Un registering all data sets")
 
     val uts = getTables
     uts.foreach(t => SparkSessionFactory.getInstance.catalog.dropTempView(t))

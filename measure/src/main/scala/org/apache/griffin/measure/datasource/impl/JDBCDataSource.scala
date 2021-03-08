@@ -26,7 +26,7 @@ import org.apache.griffin.measure.datasource.BatchDataSource
 import org.apache.griffin.measure.utils.ParamUtil._
 
 /**
- * A batch data connector for JDBC based source which allows support for various
+ * A batch data source for JDBC based source which allows support for various
  * JDBC based data sources like Oracle. Postgres etc.
  *
  * Supported Configurations:
@@ -38,7 +38,7 @@ import org.apache.griffin.measure.utils.ParamUtil._
  *  - driver : [[String]] specifying the driver for JDBC connection to database
  *  - where : [[String]] specifying the condition for reading data from table
  *
- * Some defaults assumed by this connector (if not set) are as follows:
+ * Some defaults assumed by this source (if not set) are as follows:
  *  - `database` is default,
  *  - `driver` is com.mysql.jdbc.Driver,
  *  - `where` is None
@@ -69,7 +69,7 @@ class JDBCDataSource(dataSourceParam: DataSourceParam) extends BatchDataSource(d
       true
     } catch {
       case e: ClassNotFoundException =>
-        griffinLogger.error(s"JDBC driver $driver provided is not found in class path", e)
+        error(s"JDBC driver $driver provided is not found in class path", e)
         false
     }
   }

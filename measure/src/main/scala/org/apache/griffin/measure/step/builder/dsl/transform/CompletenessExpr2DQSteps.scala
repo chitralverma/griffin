@@ -53,7 +53,7 @@ case class CompletenessExpr2DQSteps(context: DQContext, expr: Expr, ruleParam: R
 
     val sourceName = details.getString(_source, context.getDataSourceName(0))
 
-    val procType = context.procType
+    val procType = BatchProcessType
     val timestamp = context.contextId.timestamp
 
     if (!TableRegister.existsTable(sourceName)) {

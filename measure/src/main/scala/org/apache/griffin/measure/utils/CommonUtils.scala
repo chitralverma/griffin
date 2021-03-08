@@ -36,7 +36,7 @@ object CommonUtils extends Loggable {
     val result = f
     val endNanos = System.nanoTime()
 
-    griffinLogger.info(s"Time taken: ${timeUnit
+    info(s"Time taken: ${timeUnit
       .convert(endNanos - startNanos, TimeUnit.NANOSECONDS)} ${timeUnit.name().toLowerCase}")
 
     result

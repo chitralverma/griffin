@@ -18,42 +18,60 @@
 package org.apache.griffin.measure.sink
 
 import scala.collection.mutable
-import scala.collection.mutable.ListBuffer
 
-import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.DataFrame
 
+import org.apache.griffin.measure.configuration.dqdefinition.{AppConfig, SinkParam}
+
 /**
- * sink records and metrics in memory for test.
- *
- * @param config sink configurations
- * @param jobName
- * @param timeStamp
- * @param block
+ * Register for storing test sink results in memory
  */
-case class CustomSink(config: Map[String, Any], jobName: String, timeStamp: Long, block: Boolean)
-    extends Sink {
-  def validate(): Boolean = true
+object CustomSinkResultRegister {
 
-  def log(rt: Long, msg: String): Unit = {}
+  private val _metricsSink: mutable.Map[String, Map[String, Any]] = mutable.HashMap.empty
+  private val _batchSink: mutable.Map[String, Array[String]] = mutable.HashMap.empty
 
-  val allRecords: ListBuffer[String] = mutable.ListBuffer[String]()
-
-  override def sinkRecords(records: RDD[String], name: String): Unit = {
-    allRecords ++= records.collect()
+  def setMetrics(key: String, metrics: Map[String, Any]): Unit = {
+    val updatedMetrics = _metricsSink.getOrElse(key, Map.empty) ++ metrics
+    _metricsSink.put(key, updatedMetrics)
   }
 
-  override def sinkRecords(records: Iterable[String], name: String): Unit = {
-    allRecords ++= records
+  def getMetrics(key: String): Option[Map[String, Any]] = _metricsSink.get(key)
+
+  def setBatch(key: String, batch: Array[String]): Unit = {
+    val updatedBatch = _batchSink.getOrElse(key, Array.empty) ++ batch
+    _batchSink.put(key, updatedBatch)
   }
 
-  val allMetrics: mutable.Map[String, Any] = mutable.Map[String, Any]()
+  def getBatch(key: String): Option[Array[String]] = _batchSink.get(key)
+
+  def clear(): Unit = {
+    _metricsSink.clear()
+    _batchSink.clear()
+  }
+
+}
+
+/**
+ * A dummy batch sink for testing
+ * @param appConfig Application Config
+ * @param sinkParam Sink definition
+ */
+class CustomBatchSink(val appConfig: AppConfig, val sinkParam: SinkParam) extends BatchSink {
+
+  override def sinkBatchRecords(measureName: String, dataset: DataFrame): Unit = {
+    CustomSinkResultRegister.setBatch(sinkParam.getName, dataset.toJSON.collect())
+  }
+}
+
+/**
+ * A dummy metric sink for testing
+ * @param appConfig Application Config
+ * @param sinkParam Sink definition
+ */
+class CustomMetricSink(val appConfig: AppConfig, val sinkParam: SinkParam) extends MetricSink {
 
   override def sinkMetrics(metrics: Map[String, Any]): Unit = {
-    allMetrics ++= metrics
-  }
-
-  override def sinkBatchRecords(dataset: DataFrame, key: Option[String] = None): Unit = {
-    allRecords ++= dataset.toJSON.rdd.collect()
+    CustomSinkResultRegister.setMetrics(sinkParam.getName, metrics)
   }
 }

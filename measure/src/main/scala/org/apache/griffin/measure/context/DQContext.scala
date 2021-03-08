@@ -20,8 +20,7 @@ package org.apache.griffin.measure.context
 import org.apache.spark.sql.{DataFrame, Encoder, Encoders, SparkSession}
 
 import org.apache.griffin.measure.configuration.dqdefinition._
-import org.apache.griffin.measure.configuration.enums.ProcessType._
-import org.apache.griffin.measure.configuration.enums.WriteMode
+import org.apache.griffin.measure.configuration.enums.{SimpleMode, WriteMode}
 import org.apache.griffin.measure.datasource._
 import org.apache.griffin.measure.execution.TableRegister
 import org.apache.griffin.measure.sink.{Sink, SinkFactory}
@@ -34,11 +33,11 @@ import org.apache.griffin.measure.utils.SparkSessionFactory
  */
 case class DQContext(
     contextIdOpt: Option[ContextId] = None,
-    applicationName: String,
+    appConfig: AppConfig,
     dataSources: Seq[DataSource],
-    sinkParams: Seq[SinkParam],
-    procType: ProcessType) {
+    sinkParams: Seq[SinkParam]) {
 
+  val applicationName: String = appConfig.getName
   val sparkSession: SparkSession = SparkSessionFactory.getInstance
 
   val contextId: ContextId = contextIdOpt match {
@@ -50,7 +49,7 @@ case class DQContext(
 
   val metricWrapper: MetricWrapper =
     MetricWrapper(applicationName, sparkSession.sparkContext.applicationId)
-  val writeMode: WriteMode = WriteMode.defaultMode(procType)
+  val writeMode: WriteMode = SimpleMode
 
   val dataSourceNames: Seq[String] = {
     // sort data source names, put baseline data source name to the head
@@ -88,26 +87,8 @@ case class DQContext(
     }.toMap
   }
 
-  private val sinkFactory = SinkFactory(sinkParams, applicationName)
-  private val defaultSinks: Seq[Sink] = createSinks(contextId.timestamp)
-
-  def getSinks(timestamp: Long): Seq[Sink] = {
-    if (timestamp == contextId.timestamp) getSinks
-    else createSinks(timestamp)
-  }
+  private val defaultSinks: Seq[Sink] = SinkFactory.getSinks(appConfig, sinkParams)
 
   def getSinks: Seq[Sink] = defaultSinks
-
-  private def createSinks(t: Long): Seq[Sink] = {
-    procType match {
-      case BatchProcessType => sinkFactory.getSinks(t, block = true)
-      case StreamingProcessType => sinkFactory.getSinks(t, block = false)
-    }
-  }
-
-  def clean(): Unit = {
-    dataFrameCache.uncacheAllDataFrames()
-    dataFrameCache.clearAllTrashDataFrames()
-  }
 
 }

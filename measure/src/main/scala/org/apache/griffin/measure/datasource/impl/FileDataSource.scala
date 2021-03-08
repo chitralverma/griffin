@@ -31,7 +31,7 @@ import org.apache.griffin.measure.utils.HdfsUtil
 import org.apache.griffin.measure.utils.ParamUtil._
 
 /**
- * A batch data connector for file based sources which allows support various
+ * A batch data source for file based sources which allows support various
  * file based data sources like Parquet, CSV, TSV, ORC etc.
  * Local files can also be read by prepending `file://` namespace.
  *
@@ -45,7 +45,7 @@ import org.apache.griffin.measure.utils.ParamUtil._
  *  - schema : [[Seq]] of {colName, colType and isNullable} given as key value pairs. If provided, this can
  * help skip the schema inference step for some underlying data sources.
  *
- * Some defaults assumed by this connector (if not set) are as follows:
+ * Some defaults assumed by this source (if not set) are as follows:
  *  - `delimiter` is \t for TSV format,
  *  - `schema` is None,
  *  - `header` is false,
@@ -120,7 +120,7 @@ class FileDataSource(dataSourceParam: DataSourceParam) extends BatchDataSource(d
    */
   private def validateCSVOptions(): Unit = {
     if (options.contains(Header) && config.contains(Schema)) {
-      griffinLogger.warn(
+      warn(
         s"Both $Options.$Header and $Schema were provided. Defaulting to provided $Schema")
     }
 
@@ -179,7 +179,7 @@ object FileDataSource extends Loggable {
         if (HdfsUtil.existPath(path)) true
         else {
           val msg = s"Path '$path' does not exist!"
-          if (skipOnError) griffinLogger.error(msg)
+          if (skipOnError) error(msg)
           else throw new IllegalArgumentException(msg)
 
           false

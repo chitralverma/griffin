@@ -20,6 +20,7 @@ package org.apache.griffin.measure.step.write
 import scala.util.Try
 
 import org.apache.griffin.measure.context.DQContext
+import org.apache.griffin.measure.sink.MetricSink
 
 /**
  * flush final metric map in context and write
@@ -32,22 +33,19 @@ case class MetricFlushStep() extends WriteStep {
 
   def execute(context: DQContext): Try[Boolean] = Try {
     context.metricWrapper.flush.foldLeft(true) { (ret, pair) =>
-      val (t, metric) = pair
-      val pr = try {
-        context.getSinks(t).foreach { sink =>
-          try {
-            sink.sinkMetrics(metric)
-          } catch {
-            case e: Throwable => error(s"sink metrics error: ${e.getMessage}", e)
-          }
-        }
-        true
-      } catch {
-        case e: Throwable =>
-          error(s"flush metrics error: ${e.getMessage}", e)
-          false
+      val (_, metrics) = pair
+      val res = context.getSinks.map {
+        case sink: MetricSink =>
+          sink.sinkMetrics(metrics)
+          true
+        case sink =>
+          val errorMsg =
+            s"Sink with name '${sink.sinkParam.getName}' does not support metric writing."
+          warn(errorMsg)
+          true
       }
-      ret && pr
+
+      ret && res.forall(x => x)
     }
   }
 

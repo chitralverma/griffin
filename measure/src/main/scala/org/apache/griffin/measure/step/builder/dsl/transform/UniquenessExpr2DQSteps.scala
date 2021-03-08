@@ -57,7 +57,7 @@ case class UniquenessExpr2DQSteps(context: DQContext, expr: Expr, ruleParam: Rul
     val targetName = details.getString(_target, context.getDataSourceName(1))
     val analyzer = UniquenessAnalyzer(uniquenessExpr, sourceName, targetName)
 
-    val procType = context.procType
+    val procType = BatchProcessType
     val timestamp = context.contextId.timestamp
 
     if (!TableRegister.existsTable(sourceName)) {
