@@ -17,15 +17,14 @@
 
 package org.apache.griffin.measure.step.builder.dsl.transform
 
-import org.scalatest._
-import org.scalatest.mockito.MockitoSugar
+import org.scalatestplus.mockito.MockitoSugar
 
-import org.apache.griffin.measure.configuration.dqdefinition.RuleErrorConfParam
-import org.apache.griffin.measure.configuration.dqdefinition.RuleParam
+import org.apache.griffin.measure.configuration.dqdefinition.{RuleErrorConfParam, RuleParam}
 import org.apache.griffin.measure.context.DQContext
 import org.apache.griffin.measure.step.builder.dsl.expr.Expr
+import org.apache.griffin.measure.GriffinTestBase
 
-class CompletenessExpr2DQStepsTest extends FlatSpec with Matchers with MockitoSugar {
+class CompletenessExpr2DQStepsTest extends GriffinTestBase with MockitoSugar {
 
   "CompletenessExpr2DQSteps" should "get correct where clause" in {
     val completeness = CompletenessExpr2DQSteps(mock[DQContext], mock[Expr], mock[RuleParam])

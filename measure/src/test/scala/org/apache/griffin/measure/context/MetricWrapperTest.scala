@@ -17,9 +17,9 @@
 
 package org.apache.griffin.measure.context
 
-import org.scalatest._
+import org.apache.griffin.measure.GriffinTestBase
 
-class MetricWrapperTest extends FlatSpec with Matchers {
+class MetricWrapperTest extends GriffinTestBase {
 
   "metric wrapper" should "flush empty if no metric inserted" in {
     val metricWrapper = MetricWrapper("name", "appId")

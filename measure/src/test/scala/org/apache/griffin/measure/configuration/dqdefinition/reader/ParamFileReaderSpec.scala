@@ -17,13 +17,13 @@
 
 package org.apache.griffin.measure.configuration.dqdefinition.reader
 
-import org.scalatest._
 import scala.util.{Failure, Success}
 
 import org.apache.griffin.measure.configuration.dqdefinition.AppConfig
 import org.apache.griffin.measure.configuration.enums.DslType.GriffinDsl
+import org.apache.griffin.measure.GriffinTestBase
 
-class ParamFileReaderSpec extends FlatSpec with Matchers {
+class ParamFileReaderSpec extends GriffinTestBase {
 
   "params " should "be parsed from a valid file" in {
     val reader: ParamReader =

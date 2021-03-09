@@ -17,11 +17,10 @@
 
 package org.apache.griffin.measure.utils
 
-import org.scalatest._
-
 import org.apache.griffin.measure.utils.ParamUtil._
+import org.apache.griffin.measure.GriffinTestBase
 
-class ParamUtilTest extends FlatSpec with Matchers with BeforeAndAfter {
+class ParamUtilTest extends GriffinTestBase {
 
   val fruits: Map[String, Any] =
     Map[String, Any]("A" -> "apple", "B" -> "banana", "O" -> "orange")
@@ -31,7 +30,7 @@ class ParamUtilTest extends FlatSpec with Matchers with BeforeAndAfter {
   val percentiles: Seq[Any] = Seq[Any](.95, "0.4", ".3", 1, "static", "0.2")
   var params: Map[String, Any] = _
 
-  before {
+  override def beforeAll(): Unit = {
     params = Map[String, Any](
       "name" -> "alex",
       "age" -> 34,
