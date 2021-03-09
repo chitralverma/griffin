@@ -18,14 +18,13 @@
 package org.apache.griffin.measure.configuration.dqdefinition.reader
 
 import scala.io.Source
-
-import org.scalatest.{FlatSpec, Matchers}
 import scala.util.{Failure, Success}
 
 import org.apache.griffin.measure.configuration.dqdefinition.AppConfig
 import org.apache.griffin.measure.configuration.enums.DslType.GriffinDsl
+import org.apache.griffin.measure.GriffinTestBase
 
-class ParamJsonReaderSpec extends FlatSpec with Matchers {
+class ParamJsonReaderSpec extends GriffinTestBase {
 
   "params " should "be parsed from a valid file" in {
     val bufferedSource =

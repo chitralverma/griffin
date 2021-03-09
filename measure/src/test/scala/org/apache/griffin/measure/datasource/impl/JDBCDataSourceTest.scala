@@ -22,12 +22,10 @@ import java.util.Properties
 
 import scala.util._
 
-import org.scalatest.Matchers
-
 import org.apache.griffin.measure.configuration.dqdefinition.DataSourceParam
 import org.apache.griffin.measure.SparkSuiteBase
 
-class JDBCDataSourceTest extends SparkSuiteBase with Matchers {
+class JDBCDataSourceTest extends SparkSuiteBase {
 
   val url = "jdbc:h2:mem:test"
   var conn: java.sql.Connection = _

@@ -20,12 +20,11 @@ package org.apache.griffin.measure.datasource.impl
 import scala.util._
 
 import org.apache.spark.sql.types.{IntegerType, StringType, StructType}
-import org.scalatest._
 
 import org.apache.griffin.measure.SparkSuiteBase
 import org.apache.griffin.measure.configuration.dqdefinition.DataSourceParam
 
-class FileDataSourceTest extends SparkSuiteBase with Matchers {
+class FileDataSourceTest extends SparkSuiteBase {
 
   private final val dcParam = DataSourceParam(
     name = "datasource",
@@ -34,7 +33,7 @@ class FileDataSourceTest extends SparkSuiteBase with Matchers {
     config = Map.empty,
     preProc = Nil)
 
-  "file based data source" should "be able to read from local filesystem" in {
+  "file based data source" should "be able to read csv files from local filesystem" in {
     val configs = Map(
       "format" -> "csv",
       "paths" -> Seq(s"file://${getClass.getResource("/hive/person_table.csv").getPath}"),
@@ -117,7 +116,7 @@ class FileDataSourceTest extends SparkSuiteBase with Matchers {
   // Regarding various formats
   it should "be able to read all supported file types" in {
 
-    val formats = Seq("parquet", "orc", "csv", "tsv")
+    val formats = Seq("avro", "parquet", "orc", "csv", "tsv")
 
     formats.map(f => {
       val configs = Map(
@@ -146,7 +145,7 @@ class FileDataSourceTest extends SparkSuiteBase with Matchers {
   }
 
   it should "apply schema to all formats if provided" in {
-    val formats = Seq("parquet", "orc", "csv", "tsv")
+    val formats = Seq("avro", "parquet", "orc", "csv", "tsv")
     formats.map(f => {
       val configs = Map(
         "format" -> f,

@@ -20,13 +20,14 @@ package org.apache.griffin.measure.datasource.impl
 import scala.util._
 
 import org.apache.spark.sql.types.StructType
-import org.scalatest.Matchers
+import org.scalatest.Ignore
 import org.testcontainers.elasticsearch.ElasticsearchContainer
 
 import org.apache.griffin.measure.SparkSuiteBase
 import org.apache.griffin.measure.configuration.dqdefinition.DataSourceParam
 
-class ElasticsearchDataSourceTest extends SparkSuiteBase with Matchers {
+@Ignore
+class ElasticsearchDataSourceTest extends SparkSuiteBase {
 
   // ignorance flag that could skip cases
   private var ignoreCase: Boolean = false

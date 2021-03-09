@@ -23,7 +23,7 @@ import org.apache.griffin.measure.configuration.dqdefinition.DataSourceParam
 import org.apache.griffin.measure.datasource.BatchDataSource
 import org.apache.griffin.measure.utils.ParamUtil._
 
-class HiveDataSource(dataSourceParam: DataSourceParam) extends BatchDataSource(dataSourceParam) {
+class HiveDataSource(val dataSourceParam: DataSourceParam) extends BatchDataSource {
   override type T = Row
   override type Connector = Unit
 

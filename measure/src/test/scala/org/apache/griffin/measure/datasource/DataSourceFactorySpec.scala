@@ -25,8 +25,7 @@ import org.apache.griffin.measure.SparkSuiteBase
 import org.apache.griffin.measure.configuration.dqdefinition.DataSourceParam
 import org.apache.griffin.measure.datasource.impl.FileDataSource
 
-class ExampleBatchDataSource(dataSourceParam: DataSourceParam)
-    extends BatchDataSource(dataSourceParam) {
+class ExampleBatchDataSource(val dataSourceParam: DataSourceParam) extends BatchDataSource {
 
   override type T = Row
   override type Connector = Unit

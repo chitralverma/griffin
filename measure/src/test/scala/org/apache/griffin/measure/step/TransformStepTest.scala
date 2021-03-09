@@ -19,14 +19,12 @@ package org.apache.griffin.measure.step
 
 import scala.util.Try
 
-import org.scalatest._
-
-import org.apache.griffin.measure.{Loggable, SparkSuiteBase}
+import org.apache.griffin.measure.SparkSuiteBase
 import org.apache.griffin.measure.configuration.dqdefinition.AppConfig
 import org.apache.griffin.measure.context.{ContextId, DQContext}
 import org.apache.griffin.measure.step.transform.TransformStep
 
-class TransformStepTest extends FlatSpec with Matchers with SparkSuiteBase with Loggable {
+class TransformStepTest extends SparkSuiteBase {
 
   case class DualTransformStep(
       name: String,

@@ -43,7 +43,7 @@ import org.apache.griffin.measure.utils.ParamUtil._
  *  - `driver` is com.mysql.jdbc.Driver,
  *  - `where` is None
  */
-class JDBCDataSource(dataSourceParam: DataSourceParam) extends BatchDataSource(dataSourceParam) {
+class JDBCDataSource(val dataSourceParam: DataSourceParam) extends BatchDataSource {
   override type T = Row
   override type Connector = Unit
 

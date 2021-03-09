@@ -51,7 +51,7 @@ import org.apache.griffin.measure.utils.ParamUtil._
  *  - `header` is false,
  *  - `format` is parquet
  */
-class FileDataSource(dataSourceParam: DataSourceParam) extends BatchDataSource(dataSourceParam) {
+class FileDataSource(val dataSourceParam: DataSourceParam) extends BatchDataSource {
   override type T = Row
   override type Connector = Unit
 
@@ -120,8 +120,7 @@ class FileDataSource(dataSourceParam: DataSourceParam) extends BatchDataSource(d
    */
   private def validateCSVOptions(): Unit = {
     if (options.contains(Header) && config.contains(Schema)) {
-      warn(
-        s"Both $Options.$Header and $Schema were provided. Defaulting to provided $Schema")
+      warn(s"Both $Options.$Header and $Schema were provided. Defaulting to provided $Schema")
     }
 
     if (!options.contains(Header) && !config.contains(Schema)) {
@@ -183,7 +182,7 @@ object FileDataSource extends Loggable {
           else throw new IllegalArgumentException(msg)
 
           false
-      })
+        })
 
     assert(validPaths.nonEmpty, "No paths were given for the data source.")
     validPaths

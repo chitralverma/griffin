@@ -46,8 +46,7 @@ import org.apache.griffin.measure.utils.ParamUtil._
  *  - Selection expressions are applied first, then the filter expressions.
  *  - filterExprs/selectionExprs may be left empty if no filters are to be applied.
  */
-class ElasticsearchDataSource(dataSourceParam: DataSourceParam)
-    extends BatchDataSource(dataSourceParam) {
+class ElasticsearchDataSource(val dataSourceParam: DataSourceParam) extends BatchDataSource {
   override type T = Row
   override type Connector = Unit
 
