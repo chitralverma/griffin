@@ -1,7 +1,5 @@
 {
   "name": "prof_batch",
-  "process.type": "batch",
-  "timestamp": 123456,
   "data.sources": [
     {
       "name": "source",
@@ -52,6 +50,7 @@
     ]
   },
   "sinks": [
-    "CONSOLESink"
+    "CONSOLESink",
+    "customSink"
   ]
 }

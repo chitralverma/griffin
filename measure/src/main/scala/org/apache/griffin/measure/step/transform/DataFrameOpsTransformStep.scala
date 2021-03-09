@@ -45,7 +45,7 @@ case class DataFrameOpsTransformStep[T <: WriteStep](
         case DataFrameOps._clear => DataFrameOps.clear(sparkSession, inputDfName, details)
         case _ => throw new Exception(s"df opr [ $rule ] not supported")
       }
-      if (cache) context.dataFrameCache.cacheDataFrame(name, df)
+
       TableRegister.registerTable(name, df)
       writeStepOpt match {
         case Some(writeStep) => writeStep.execute(context)

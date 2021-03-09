@@ -1,41 +1,30 @@
 {
   "spark": {
-    "log.level": "WARN",
+    "log.level": "ERROR",
     "config": {
       "spark.master": "local[*]"
     }
   },
   "sinks": [
     {
-      "name": "console",
+      "name": "consoleSink",
       "type": "CONSOLE",
       "isStreaming": false,
       "config": {
       }
     },
     {
-      "name": "hdfs",
+      "name": "localfs",
       "type": "file",
       "isStreaming": false,
       "config": {
-        "recordsPath": "hdfs://localhost/griffin/batch/persist/records",
-        "metricsPath": "hdfs://localhost/griffin/batch/persist/metrics",
+        "recordsPath": "/tmp/griffin/batch/persist",
+        "metricsPath": "/tmp/griffin/batch/persist/metrics",
         "format": "csv",
         "options": {
           "header": "true"
         }
       }
-    },
-    {
-      "name": "elasticsearch",
-      "type": "ELASTICSEARCH",
-      "config": {
-        "method": "post",
-        "api": "http://localhost:9200/griffin/accuracy",
-        "connection.timeout": "1m",
-        "retry": 10
-      }
     }
-  ],
-  "griffin.checkpoint": []
+  ]
 }

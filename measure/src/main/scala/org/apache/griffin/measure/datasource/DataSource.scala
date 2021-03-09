@@ -19,6 +19,8 @@ package org.apache.griffin.measure.datasource
 
 import java.util.concurrent.atomic.AtomicLong
 
+import scala.util.{Failure, Success}
+
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 import org.apache.griffin.measure.Loggable
@@ -111,12 +113,15 @@ trait DataSource extends Loggable {
     val preProcJob = DQJobBuilder.buildDQJob(context, preProcRules)
 
     // job execute
-    preProcJob.execute(context)
+    preProcJob.execute(context) match {
+      case Success(_) =>
+      case Failure(exception) =>
+        error("Exception occurred while applying preprocessing rules.", exception)
+        throw exception
+    }
 
     // out data
-    val outDf = context.sparkSession.table(s"`$thisTable`")
-
-    outDf
+    context.sparkSession.table(s"`$thisTable`")
   }
 }
 

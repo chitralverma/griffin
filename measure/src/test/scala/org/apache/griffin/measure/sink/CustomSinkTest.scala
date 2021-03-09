@@ -24,7 +24,7 @@ import org.apache.spark.sql.types._
 
 import org.apache.griffin.measure.configuration.dqdefinition._
 import org.apache.griffin.measure.configuration.enums.FlattenType.DefaultFlattenType
-import org.apache.griffin.measure.step.write.{MetricFlushStep, MetricWriteStep, RecordWriteStep}
+import org.apache.griffin.measure.step.write.{MetricWriteStep, RecordWriteStep}
 import org.apache.griffin.measure.SparkSuiteBase
 import org.apache.griffin.measure.context.{ContextId, DQContext}
 
@@ -130,7 +130,6 @@ class CustomSinkTest extends SparkSuiteBase {
     }
 
     metricWriteStep.execute(dQContext)
-    MetricFlushStep().execute(dQContext)
 
     val actualMetrics = CustomSinkResultRegister.getMetrics(metricSink.sinkParam.getName)
 
@@ -141,7 +140,7 @@ class CustomSinkTest extends SparkSuiteBase {
     val expected = Map("default_output" -> metricsValue)
 
     assert(actualMetrics.isDefined)
-    actualMetrics.get("value") should be(expected)
+    actualMetrics.get("metricValue") should be(expected)
   }
 
   "RecordWriteStep" should "work with custom sink" in {

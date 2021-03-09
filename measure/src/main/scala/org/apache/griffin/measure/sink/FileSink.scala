@@ -23,7 +23,7 @@ import scala.collection.mutable.{HashMap => MutableMap}
 
 import org.apache.spark.sql.{DataFrame, SaveMode}
 import org.apache.spark.sql.internal.SQLConf
-import org.apache.spark.sql.streaming.{OutputMode, StreamingQuery, Trigger}
+import org.apache.spark.sql.streaming.StreamingQuery
 
 import org.apache.griffin.measure.configuration.dqdefinition.{AppConfig, SinkParam}
 import org.apache.griffin.measure.utils.{HdfsUtil, JsonUtil}
@@ -47,13 +47,6 @@ class FileSink(val appConfig: AppConfig, val sinkParam: SinkParam)
   private val Delimiter: String = "delimiter"
   private val Separator = "/"
   private val TabDelimiter: String = "\t"
-
-  private val StreamingOutputMode: String = "streamingOutputMode"
-  private val sOutputMode: String =
-    config.getString(StreamingOutputMode, defValue = OutputMode.Update().toString)
-
-  private val TriggerMs: String = "triggerMs"
-  private val triggerValue: Long = config.getLong(TriggerMs, defValue = 0L)
 
   private val DefaultFormat: String = SQLConf.DEFAULT_DATA_SOURCE_NAME.defaultValueString
   private val partitionedBy: Seq[String] = config.getStringArr(PartitionedByStr, Nil)
@@ -116,8 +109,8 @@ class FileSink(val appConfig: AppConfig, val sinkParam: SinkParam)
 
     dataset.writeStream
       .format(format)
-      .outputMode(sOutputMode)
-      .trigger(Trigger.ProcessingTime(triggerValue))
+      .outputMode(sinkParam.getStreamingOutputMode)
+      .trigger(sinkParam.getTrigger)
       .options(options)
       .queryName(sinkParam.getName)
       .start(recordsPath)

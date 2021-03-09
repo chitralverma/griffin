@@ -81,8 +81,8 @@ trait TransformStep extends DQStep {
       case Success(_) =>
         info(threadName + " end transform step : \n" + debugString())
         doExecute(context)
-      case Failure(_) =>
-        error("Parent transform step failed!")
+      case Failure(e) =>
+        error("Parent transform step failed!", e)
         parentsResult
     }
   }

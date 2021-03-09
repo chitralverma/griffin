@@ -23,12 +23,18 @@ import org.apache.spark.sql.AnalysisException
 
 import org.apache.griffin.measure.configuration.dqdefinition.{AppConfig, EnvConfig, GriffinConfig}
 import org.apache.griffin.measure.configuration.dqdefinition.reader.ParamReaderFactory
+import org.apache.griffin.measure.sink.CustomSinkResultRegister
 import org.apache.griffin.measure.SparkSuiteBase
 
 class BatchGriffinJobExecutorTest extends SparkSuiteBase {
 
   val envParam: EnvConfig =
     ParamReaderFactory.readParam[EnvConfig](getConfigFilePath("/env-batch.json"))
+
+  override def beforeEach(): Unit = {
+    super.beforeEach()
+    CustomSinkResultRegister.clear()
+  }
 
   private def getConfigFilePath(fileName: String): String = {
     try {
@@ -53,11 +59,11 @@ class BatchGriffinJobExecutorTest extends SparkSuiteBase {
     griffinLogger.info(metrics)
 
     //    check Result Metrics
-    val dqContext = executor.dqContext
-    val timestamp = dqContext.contextId.timestamp
-    val expectedMetrics = Map(timestamp -> metrics)
+    val actualMetrics =
+      CustomSinkResultRegister.getMetrics("customSink").flatMap(_.get("metricValue"))
 
-    dqContext.metricWrapper.metrics should equal(expectedMetrics)
+    assert(actualMetrics.isDefined)
+    actualMetrics.get should equal(metrics)
   }
 
   def runAndCheckException(executor: GriffinJobExecutor, cls: Class[_]): Unit = {
@@ -100,7 +106,7 @@ class BatchGriffinJobExecutorTest extends SparkSuiteBase {
     val executor = getGriffinJobExecutor(dqParamFile)
 
     val expectedMetrics =
-      Map("total" -> 50, "distinct" -> 49, "dup" -> Seq(Map("dup" -> 1, "num" -> 1)))
+      Map("dup" -> Seq(Map("dup" -> 1, "num" -> 1)))
 
     runAndCheckResult(executor, expectedMetrics)
   }
@@ -109,22 +115,7 @@ class BatchGriffinJobExecutorTest extends SparkSuiteBase {
     val dqParamFile = "/_profiling-batch-griffindsl.json"
     val executor = getGriffinJobExecutor(dqParamFile)
 
-    val expectedMetrics = Map(
-      "prof" -> Seq(
-        Map("user_id" -> 10004, "cnt" -> 1),
-        Map("user_id" -> 10011, "cnt" -> 1),
-        Map("user_id" -> 10010, "cnt" -> 1),
-        Map("user_id" -> 10002, "cnt" -> 1),
-        Map("user_id" -> 10006, "cnt" -> 1),
-        Map("user_id" -> 10001, "cnt" -> 1),
-        Map("user_id" -> 10005, "cnt" -> 1),
-        Map("user_id" -> 10008, "cnt" -> 1),
-        Map("user_id" -> 10013, "cnt" -> 1),
-        Map("user_id" -> 10003, "cnt" -> 1),
-        Map("user_id" -> 10007, "cnt" -> 1),
-        Map("user_id" -> 10012, "cnt" -> 1),
-        Map("user_id" -> 10009, "cnt" -> 1)),
-      "post_group" -> Seq(Map("post_code" -> "94022", "cnt" -> 13)))
+    val expectedMetrics = Map("post_group" -> Seq(Map("post_code" -> "94022", "cnt" -> 13)))
 
     runAndCheckResult(executor, expectedMetrics)
   }
@@ -133,15 +124,7 @@ class BatchGriffinJobExecutorTest extends SparkSuiteBase {
     val dqParamFile = "/_timeliness-batch-griffindsl.json"
     val executor = getGriffinJobExecutor(dqParamFile)
 
-    val expectedMetrics = Map(
-      "total" -> 10,
-      "avg" -> 276000,
-      "percentile_95" -> 660000,
-      "step" -> Seq(
-        Map("step" -> 0, "cnt" -> 6),
-        Map("step" -> 5, "cnt" -> 2),
-        Map("step" -> 3, "cnt" -> 1),
-        Map("step" -> 4, "cnt" -> 1)))
+    val expectedMetrics = Map("percentile_95" -> 660000)
 
     runAndCheckResult(executor, expectedMetrics)
   }
@@ -150,7 +133,7 @@ class BatchGriffinJobExecutorTest extends SparkSuiteBase {
     val dqParamFile = "/_uniqueness-batch-griffindsl.json"
     val executor = getGriffinJobExecutor(dqParamFile)
 
-    val expectedMetrics = Map("total" -> 50, "unique" -> 48)
+    val expectedMetrics = Map("unique" -> 48)
 
     runAndCheckResult(executor, expectedMetrics)
   }

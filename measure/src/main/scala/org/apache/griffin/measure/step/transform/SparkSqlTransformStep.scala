@@ -38,11 +38,11 @@ case class SparkSqlTransformStep[T <: WriteStep](
     Try {
       val sparkSession = context.sparkSession
       val df = sparkSession.sql(rule)
-      if (cache) context.dataFrameCache.cacheDataFrame(name, df)
+
       TableRegister.registerTable(name, df)
       writeStepOpt match {
         case Some(writeStep) => writeStep.execute(context)
-        case None => Try(true)
+        case None => Try(false)
       }
     }.flatten
 

@@ -20,7 +20,6 @@ package org.apache.griffin.measure.context
 import org.apache.spark.sql.{DataFrame, Encoder, Encoders, SparkSession}
 
 import org.apache.griffin.measure.configuration.dqdefinition._
-import org.apache.griffin.measure.configuration.enums.{SimpleMode, WriteMode}
 import org.apache.griffin.measure.datasource._
 import org.apache.griffin.measure.execution.TableRegister
 import org.apache.griffin.measure.sink.{Sink, SinkFactory}
@@ -44,12 +43,6 @@ case class DQContext(
     case Some(x) => x
     case None => ContextId(System.currentTimeMillis)
   }
-
-  val dataFrameCache: DataFrameCache = DataFrameCache()
-
-  val metricWrapper: MetricWrapper =
-    MetricWrapper(applicationName, sparkSession.sparkContext.applicationId)
-  val writeMode: WriteMode = SimpleMode
 
   val dataSourceNames: Seq[String] = {
     // sort data source names, put baseline data source name to the head

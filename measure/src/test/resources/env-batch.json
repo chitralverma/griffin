@@ -9,10 +9,17 @@
     {
       "name": "consoleSink",
       "type": "console",
+      "isStreaming": false,
+      "config": {
+      }
+    },
+    {
+      "name": "customSink",
+      "type": "org.apache.griffin.measure.sink.CustomMetricSink",
+      "isStreaming": false,
       "config": {
         "max.log.lines": 10
       }
     }
-  ],
-  "griffin.checkpoint": []
+  ]
 }

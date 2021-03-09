@@ -39,13 +39,13 @@ under the License.
         <spark.major.version>2.4</spark.major.version>
         <spark.version>${spark.major.version}.4</spark.version>
         <spark.scope>${provided.scope}</spark.scope>
-        <spark-streaming-kafka.version>${spark.version}</spark-streaming-kafka.version>
 
         <!-- Code Standardization -->
         <scalastyle.version>1.0.0</scalastyle.version>
         <scalafmt.version>1.0.3</scalafmt.version>
 
         <!-- Data Connectors -->
+        <spark.kafka.version>0-10</spark.kafka.version>
         <mysql.java.version>5.1.47</mysql.java.version>
         <mariadb.version>2.7.0</mariadb.version>
         <cassandra.connector.version>2.5.1</cassandra.connector.version>
@@ -101,29 +101,11 @@ under the License.
         </dependency>
 
         <!-- Spark Kafka-->
-        <!-- TODO
-        Spark Streaming Kafka 08 is not cross compiled with scala 2.12.
-        Thus, this dependency has been temporary un-banned in the enforcer plugin.
-        This will be removed with structured streaming implementation
-        -->
         <dependency>
             <groupId>org.apache.spark</groupId>
-            <artifactId>spark-streaming-kafka-0-8_${scala211.binary.version}</artifactId>
-            <version>${spark-streaming-kafka.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.scala-lang.modules</groupId>
-                    <artifactId>scala-xml_2.11</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.scala-lang.modules</groupId>
-                    <artifactId>scala-parser-combinators_2.11</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.spark</groupId>
-                    <artifactId>spark-tags_2.11</artifactId>
-                </exclusion>
-            </exclusions>
+            <artifactId>spark-sql-kafka-${spark.kafka.version}_${scala.binary.version}</artifactId>
+            <version>${spark.version}</version>
+            <scope>${spark.scope}</scope>
         </dependency>
 
         <!-- MongoDB-->
@@ -514,8 +496,6 @@ under the License.
                                             <!-- TODO Temporary Fix: These will be removed in a future iteration. -->
                                             <includes>
                                                 <include>org.elasticsearch:elasticsearch-spark-20_2.11:*</include>
-                                                <include>org.apache.spark:spark-streaming-kafka-0-8_2.11:*</include>
-                                                <include>org.apache.kafka:kafka_2.11:*</include>
                                             </includes>
                                             <excludes>
                                                 <exclude>*:*_2.10</exclude>
@@ -580,7 +560,6 @@ under the License.
             <properties>
                 <spark.major.version>3.0</spark.major.version>
                 <spark.version>${spark.major.version}.2</spark.version>
-                <spark-streaming-kafka.version>2.4.7</spark-streaming-kafka.version>
             </properties>
         </profile>
 

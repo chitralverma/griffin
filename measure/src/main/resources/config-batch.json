@@ -1,21 +1,24 @@
 {
-  "name": "accu_batch",
-  "process.type": "batch",
+  "name": "BatchApplication",
   "data.sources": [
     {
       "name": "source",
       "type": "file",
       "config": {
         "format": "avro",
-        "file.name": "measure/src/test/resources/users_info_src.avro"
+        "paths": [
+          "measure/src/test/resources/users_info_src.avro"
+        ]
       }
     },
     {
-      "name": "source",
+      "name": "target",
       "type": "file",
       "config": {
         "format": "avro",
-        "file.name": "measure/src/test/resources/users_info_target.avro"
+        "paths": [
+          "measure/src/test/resources/users_info_target.avro"
+        ]
       }
     }
   ],
@@ -24,13 +27,66 @@
       {
         "dsl.type": "griffin-dsl",
         "dq.type": "accuracy",
-        "out.dataframe.name": "accu",
-        "rule": "source.user_id = target.user_id AND upper(source.first_name) = upper(target.first_name) AND source.last_name = target.last_name AND source.address = target.address AND source.email = target.email AND source.phone = target.phone AND source.post_code = target.post_code"
+        "out.dataframe.name": "accuracyDF",
+        "rule": "source.user_id = target.user_id AND upper(source.first_name) = upper(target.first_name) AND source.last_name = target.last_name AND source.address = target.address AND source.email = target.email AND source.phone = target.phone AND source.post_code = target.post_code",
+        "out": [
+          {
+            "name": "accuracyMetric",
+            "type": "metric"
+          },
+          {
+            "name": "accuracyRecords",
+            "type": "Record"
+          }
+        ]
+      },
+      {
+        "dsl.type": "griffin-dsl",
+        "dq.type": "completeness",
+        "out.dataframe.name": "completenessDF",
+        "rule": "user_id,post_code",
+        "out": [
+          {
+            "name": "completenessMetric",
+            "type": "metric"
+          },
+          {
+            "name": "completenessRecords",
+            "type": "Record"
+          }
+        ]
+      },
+      {
+        "dsl.type": "griffin-dsl",
+        "dq.type": "profiling",
+        "out.dataframe.name": "profilingDF",
+        "rule": "select * from (select user_id, COUNT(DISTINCT phone) as `cnt` from source group by user_id) where cnt > 1 ",
+        "out": [
+          {
+            "name": "profilingMetric",
+            "type": "metric"
+          },
+          {
+            "name": "profilingRecords",
+            "type": "Record"
+          }
+        ]
+      },
+      {
+        "dsl.type": "spark-sql",
+        "out.dataframe.name": "sparkSQLDF",
+        "rule": "select * from (select post_code, (case when cast(post_code as bigint) is null then 1 else 0 end ) as isNumeric from source) where isNumeric = 1",
+        "out": [
+          {
+            "name": "sparkSQLMetric",
+            "type": "metric"
+          }
+        ]
       }
     ]
   },
   "sinks": [
     "consoleSink",
-    "elasticSink"
+    "localfs"
   ]
 }

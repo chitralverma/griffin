@@ -1,6 +1,5 @@
 {
   "name": "unique_batch",
-  "process.type": "batch",
   "data.sources": [
     {
       "name": "source",
@@ -52,6 +51,7 @@
     ]
   },
   "sinks": [
-    "CONSOLESink"
+    "CONSOLESink",
+    "customSink"
   ]
 }

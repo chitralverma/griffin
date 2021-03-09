@@ -20,11 +20,13 @@ package org.apache.griffin.measure.step.write
 import scala.collection.immutable.{Map => HashMap}
 import scala.util.Try
 
-import org.apache.griffin.measure.configuration.enums.{SimpleMode, TimestampMode}
+import org.apache.spark.sql.DataFrame
+
 import org.apache.griffin.measure.configuration.enums.FlattenType._
 import org.apache.griffin.measure.context.DQContext
-import org.apache.griffin.measure.step.builder.ConstantColumns
-import org.apache.griffin.measure.utils.ParamUtil._
+import org.apache.griffin.measure.execution.StreamingQueryRegister
+import org.apache.griffin.measure.sink.MetricSink
+import org.apache.griffin.measure.utils.SparkSessionFactory
 
 /**
  * write metrics into context metric wrapper
@@ -36,58 +38,75 @@ case class MetricWriteStep(
     writeTimestampOpt: Option[Long] = None)
     extends WriteStep {
 
+  private val _MetricName = "metricName"
+  private val _ApplicationID = "applicationID"
+  private val _BatchID = "batchID"
+  private val _MetricValue = "metricValue"
+  private val _Metadata = "metadata"
+
   val emptyMetricMap: HashMap[Long, HashMap[String, Any]] = HashMap[Long, HashMap[String, Any]]()
   val emptyMap: HashMap[String, Any] = HashMap.empty[String, Any]
 
   def execute(context: DQContext): Try[Boolean] = Try {
-    val timestamp = writeTimestampOpt.getOrElse(context.contextId.timestamp)
-
-    // get metric list from data frame
-    val metricMaps: Seq[Map[String, Any]] = getMetricMaps(context)
-
-    // get timestamp and normalize metric
-    val writeMode = writeTimestampOpt.map(_ => SimpleMode).getOrElse(context.writeMode)
-    val timestampMetricMap: HashMap[Long, HashMap[String, Any]] = writeMode match {
-
-      case SimpleMode =>
-        val metrics: HashMap[String, Any] = flattenMetric(metricMaps, name, flattenType)
-        emptyMetricMap + (timestamp -> metrics)
-
-      case TimestampMode =>
-        val tmstMetrics = metricMaps.map { metric =>
-          val tmst = metric.getLong(ConstantColumns.tmst, timestamp)
-          val pureMetric = metric.removeKeys(ConstantColumns.columns)
-          (tmst, pureMetric)
-        }
-        tmstMetrics.groupBy(_._1).map { pair =>
-          val (k, v) = pair
-          val maps = v.map(_._2)
-          val mtc = flattenMetric(maps, name, flattenType)
-          (k, mtc)
-        }
-    }
-
-    // write to metric wrapper
-    timestampMetricMap.foreach { pair =>
-      val (timestamp, v) = pair
-      context.metricWrapper.insertMetric(timestamp, v)
-    }
-
+    flushMetrics(context)
     true
   }
 
-  private def getMetricMaps(context: DQContext): Seq[Map[String, Any]] = {
-    try {
-      val pdf = context.sparkSession.table(s"`$inputName`")
-      val rows = pdf.collect()
-      val columns = pdf.columns
-      if (rows.length > 0) {
-        rows.map(_.getValuesMap(columns))
-      } else Nil
-    } catch {
-      case e: Throwable =>
-        error(s"get metric $name fails", e)
-        Nil
+  private def processBatch(df: DataFrame, batchId: Long): Map[String, Any] = {
+    val rows = df.collect()
+    val columns = df.columns
+    val metricMaps: Seq[Map[String, Any]] = if (rows.length > 0) {
+      rows.map(_.getValuesMap(columns))
+    } else Nil
+
+    val metrics = flattenMetric(metricMaps, name, flattenType)
+
+    HashMap[String, Any](
+      _MetricName -> name,
+      _ApplicationID -> SparkSessionFactory.getInstance.sparkContext.applicationId,
+      _BatchID -> batchId,
+      _MetricValue -> metrics)
+  }
+
+  private def hasMultipleSinks(context: DQContext): Boolean = {
+    context.getSinks.size > 1
+  }
+
+  private def flushBatch(
+      context: DQContext,
+      sink: MetricSink,
+      batchDf: DataFrame,
+      batchId: Long): Unit = {
+    val multipleSinks = hasMultipleSinks(context)
+    if (multipleSinks) batchDf.persist()
+
+    val metrics: Map[String, Any] = processBatch(batchDf, batchId)
+    sink.sinkMetrics(metrics)
+
+    if (multipleSinks) batchDf.unpersist()
+  }
+
+  private def flushMetrics(context: DQContext): Unit = {
+    val df = context.sparkSession.table(s"`$inputName`")
+
+    context.getSinks.foreach {
+      case metricSink: MetricSink =>
+        if (df.isStreaming) {
+          val metricStreamingQuery = df.writeStream
+            .queryName(s"metrics:$name:${metricSink.sinkParam.getName}")
+            .outputMode(metricSink.sinkParam.getStreamingOutputMode)
+            .trigger(metricSink.sinkParam.getTrigger)
+            .foreachBatch((batchDf, batchId) => flushBatch(context, metricSink, batchDf, batchId))
+            .start()
+
+          StreamingQueryRegister.registerQuery(metricStreamingQuery)
+        } else {
+          flushBatch(context, metricSink, df, 0L)
+        }
+      case sink =>
+        val errorMsg =
+          s"Sink with name '${sink.sinkParam.getName}' does not support metric writing."
+        warn(errorMsg)
     }
   }
 

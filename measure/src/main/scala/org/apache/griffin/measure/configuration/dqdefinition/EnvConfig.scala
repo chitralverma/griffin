@@ -19,7 +19,9 @@ package org.apache.griffin.measure.configuration.dqdefinition
 
 import com.fasterxml.jackson.annotation.{JsonInclude, JsonProperty}
 import com.fasterxml.jackson.annotation.JsonInclude.Include
+import io.netty.util.internal.StringUtil
 import org.apache.commons.lang.StringUtils
+import org.apache.spark.sql.streaming.{OutputMode, Trigger}
 
 /**
  * Model for Environment Config.
@@ -77,12 +79,20 @@ case class SinkParam(
     @JsonProperty("name") private val name: String,
     @JsonProperty("type") private val sinkType: String,
     @JsonProperty("isStreaming") private val isStreaming: Boolean = false,
+    @JsonProperty("streamingOutputMode") private val streamingOutputMode: String =
+      OutputMode.Update().toString,
+    @JsonProperty("triggerMs") private val triggerValue: Long = 0L,
     @JsonProperty("config") private val config: Map[String, Any] = Map.empty)
     extends Param {
+
   def getName: String = name
   def getType: String = sinkType
   def getConfig: Map[String, Any] = config
   def getIsStreaming: Boolean = isStreaming
+  def getTrigger: Trigger = Trigger.ProcessingTime(triggerValue)
+  def getStreamingOutputMode: String =
+    if (StringUtil.isNullOrEmpty(streamingOutputMode)) OutputMode.Update().toString
+    else streamingOutputMode
 
   def validate(): Unit = {
     assert(name != null, "sink name should must be defined")

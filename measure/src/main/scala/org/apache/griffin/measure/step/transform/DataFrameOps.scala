@@ -19,9 +19,11 @@ package org.apache.griffin.measure.step.transform
 
 import java.util.Date
 
-import org.apache.spark.sql.{Encoders, Row, _}
+import org.apache.spark.sql.{Row, _}
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
+import org.apache.griffin.measure.Loggable
 import org.apache.griffin.measure.context.ContextId
 import org.apache.griffin.measure.context.streaming.metric._
 import org.apache.griffin.measure.context.streaming.metric.CacheResults.CacheResult
@@ -31,7 +33,7 @@ import org.apache.griffin.measure.utils.ParamUtil._
 /**
  * pre-defined data frame operations
  */
-object DataFrameOps {
+object DataFrameOps extends Loggable {
 
   final val _fromJson = "from_json"
   final val _accuracy = "accuracy"
@@ -49,17 +51,28 @@ object DataFrameOps {
       sparkSession: SparkSession,
       inputDfName: String,
       details: Map[String, Any]): DataFrame = {
-    val _colName = "col.name"
-    val colNameOpt = details.get(_colName).map(_.toString)
+    import org.apache.commons.lang3.StringEscapeUtils
+    val schemaOpt = details
+      .get("schema")
+      .map(_.toString)
+      .map(StringEscapeUtils.unescapeJson)
+      .map(DataType.fromJson)
 
-    implicit val encoder: Encoder[String] = Encoders.STRING
+    schemaOpt match {
+      case Some(schema) =>
+        val df: DataFrame = sparkSession.table(s"`$inputDfName`")
+        val _colName = "col.name"
+        val colName = details.get(_colName).map(_.toString).getOrElse(df.columns(0))
 
-    val df: DataFrame = sparkSession.table(s"`$inputDfName`")
-    val rdd = colNameOpt match {
-      case Some(colName: String) => df.map(r => r.getAs[String](colName))
-      case _ => df.map(_.getAs[String](0))
+        df.withColumn(colName, from_json(col(colName), schema))
+          .select(s"$colName.*")
+
+      case None =>
+        val errorMsg = "Schema must be provided as json string for json extraction."
+        val exception = new IllegalArgumentException("")
+        error(errorMsg, exception)
+        throw exception
     }
-    sparkSession.read.json(rdd) // slow process
   }
 
   def accuracy(

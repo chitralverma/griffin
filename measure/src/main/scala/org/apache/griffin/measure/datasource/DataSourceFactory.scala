@@ -96,6 +96,7 @@ object DataSourceFactory extends Loggable {
         case ElasticSearchRegex() => classOf[ElasticsearchDataSource]
         case JDBCRegex() => classOf[JDBCDataSource]
         case CassandraRegex() => classOf[CassandraDataSource]
+        case KafkaRegex() => classOf[KafkaDataSource]
         case className => Class.forName(className, true, CommonUtils.getContextOrMainClassLoader)
       }
     } match {

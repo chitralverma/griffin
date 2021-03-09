@@ -21,7 +21,7 @@ import scala.collection.mutable.{HashMap => MutableMap}
 import scala.util.Try
 
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.streaming.{OutputMode, StreamingQuery, Trigger}
+import org.apache.spark.sql.streaming.StreamingQuery
 
 import org.apache.griffin.measure.configuration.dqdefinition.{AppConfig, SinkParam}
 import org.apache.griffin.measure.utils.JsonUtil
@@ -44,13 +44,9 @@ class ConsoleSink(val appConfig: AppConfig, val sinkParam: SinkParam)
   private val OptionsStr: String = "options"
   private val Truncate: String = "truncate"
   private val NumberOfRows: String = "numRows"
-  private val StreamingOutputMode: String = "streamingOutputMode"
-  private val TriggerMs: String = "triggerMs"
 
   private val numRows: Int = config.getInt(NumberOfRows, 20)
-  private val triggerValue: Long = config.getLong(TriggerMs, defValue = 0L)
-  private val sOutputMode: String =
-    config.getString(StreamingOutputMode, defValue = OutputMode.Update().toString)
+
   val options: MutableMap[String, String] = MutableMap(
     config.getParamStringMap(OptionsStr, Map.empty).toSeq: _*)
   private val truncateRecords: Boolean =
@@ -84,8 +80,8 @@ class ConsoleSink(val appConfig: AppConfig, val sinkParam: SinkParam)
 
     dataset.writeStream
       .format("console")
-      .outputMode(sOutputMode)
-      .trigger(Trigger.ProcessingTime(triggerValue))
+      .outputMode(sinkParam.getStreamingOutputMode)
+      .trigger(sinkParam.getTrigger)
       .options(options)
       .queryName(sinkParam.getName)
       .start()

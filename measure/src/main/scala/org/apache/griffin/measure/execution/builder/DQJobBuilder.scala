@@ -20,7 +20,6 @@ package org.apache.griffin.measure.execution.builder
 import org.apache.griffin.measure.configuration.dqdefinition._
 import org.apache.griffin.measure.context.DQContext
 import org.apache.griffin.measure.step.builder.DQStepBuilder
-import org.apache.griffin.measure.step.write.MetricFlushStep
 
 /**
  * build dq job based on configuration
@@ -51,10 +50,8 @@ object DQJobBuilder {
     val ruleSteps = ruleParams.flatMap { ruleParam =>
       DQStepBuilder.buildStepOptByRuleParam(context, ruleParam)
     }
-    // metric flush step
-    val metricFlushStep = MetricFlushStep()
 
-    DQJob(ruleSteps :+ metricFlushStep)
+    DQJob(ruleSteps)
   }
 
 }
