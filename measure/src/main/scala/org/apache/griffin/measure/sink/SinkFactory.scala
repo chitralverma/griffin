@@ -51,18 +51,7 @@ object SinkFactory extends Loggable with Serializable {
     Try {
       val cls = getSinkClass(sinkParam)
 
-      if (sinkParam.getIsStreaming) {
-        if (classOf[StreamingSink].isAssignableFrom(cls)) {
-          getSinkInstance(cls, appConfig, sinkParam)
-        } else {
-          val errorMsg =
-            s"Data Source with class name '${cls.getCanonicalName}' does not support streaming."
-          val exception = new IllegalStateException(errorMsg)
-          throw exception
-        }
-      } else if (classOf[BatchSink].isAssignableFrom(cls)) {
-        getSinkInstance(cls, appConfig, sinkParam)
-      } else if (classOf[MetricSink].isAssignableFrom(cls)) {
+      if (classOf[Sink].isAssignableFrom(cls)) {
         getSinkInstance(cls, appConfig, sinkParam)
       } else {
         val errorMsg =

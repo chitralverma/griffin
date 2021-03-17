@@ -57,11 +57,16 @@ object CustomSinkResultRegister {
  * @param appConfig Application Config
  * @param sinkParam Sink definition
  */
-class CustomBatchSink(val appConfig: AppConfig, val sinkParam: SinkParam) extends BatchSink {
+class CustomBatchSink(val appConfig: AppConfig, val sinkParam: SinkParam) extends Sink {
 
   override def sinkBatchRecords(measureName: String, dataset: DataFrame): Unit = {
     CustomSinkResultRegister.setBatch(sinkParam.getName, dataset.toJSON.collect())
   }
+
+  /**
+   * Implementation of persisting metrics.
+   */
+  override def sinkBatchMetrics(metrics: Map[String, Any]): Unit = {}
 }
 
 /**
@@ -69,9 +74,14 @@ class CustomBatchSink(val appConfig: AppConfig, val sinkParam: SinkParam) extend
  * @param appConfig Application Config
  * @param sinkParam Sink definition
  */
-class CustomMetricSink(val appConfig: AppConfig, val sinkParam: SinkParam) extends MetricSink {
+class CustomMetricSink(val appConfig: AppConfig, val sinkParam: SinkParam) extends Sink {
 
-  override def sinkMetrics(metrics: Map[String, Any]): Unit = {
+  override def sinkBatchMetrics(metrics: Map[String, Any]): Unit = {
     CustomSinkResultRegister.setMetrics(sinkParam.getName, metrics)
   }
+
+  /**
+   * Implementation of persisting records for batch pipelines.
+   */
+  override def sinkBatchRecords(measureName: String, dataset: DataFrame): Unit = {}
 }

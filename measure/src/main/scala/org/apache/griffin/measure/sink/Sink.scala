@@ -18,7 +18,6 @@
 package org.apache.griffin.measure.sink
 
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.streaming.StreamingQuery
 
 import org.apache.griffin.measure.Loggable
 import org.apache.griffin.measure.configuration.dqdefinition.{AppConfig, SinkParam}
@@ -52,32 +51,18 @@ trait Sink extends Loggable with Serializable {
   def open(): Unit = {}
 
   /**
-   * Allows clean up for the sink (if required).
-   */
-  def close(): Unit = {}
-
-}
-
-trait MetricSink extends Sink {
-
-  /**
    * Implementation of persisting metrics.
    */
-  def sinkMetrics(metrics: Map[String, Any]): Unit
-}
-
-trait BatchSink extends Sink {
+  def sinkBatchMetrics(metrics: Map[String, Any]): Unit
 
   /**
    * Implementation of persisting records for batch pipelines.
    */
   def sinkBatchRecords(measureName: String, dataset: DataFrame): Unit
-}
-
-trait StreamingSink extends Sink {
 
   /**
-   * Implementation of persisting records for streaming pipelines.
+   * Allows clean up for the sink (if required).
    */
-  def sinkStreamingRecords(dataset: DataFrame): StreamingQuery
+  def close(): Unit = {}
+
 }

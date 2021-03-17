@@ -25,7 +25,7 @@ import org.apache.spark.sql.DataFrame
 import org.apache.griffin.measure.configuration.enums.FlattenType._
 import org.apache.griffin.measure.context.DQContext
 import org.apache.griffin.measure.execution.StreamingQueryRegister
-import org.apache.griffin.measure.sink.MetricSink
+import org.apache.griffin.measure.sink.Sink
 import org.apache.griffin.measure.utils.SparkSessionFactory
 
 /**
@@ -42,7 +42,6 @@ case class MetricWriteStep(
   private val _ApplicationID = "applicationID"
   private val _BatchID = "batchID"
   private val _MetricValue = "metricValue"
-  private val _Metadata = "metadata"
 
   val emptyMetricMap: HashMap[Long, HashMap[String, Any]] = HashMap[Long, HashMap[String, Any]]()
   val emptyMap: HashMap[String, Any] = HashMap.empty[String, Any]
@@ -74,14 +73,14 @@ case class MetricWriteStep(
 
   private def flushBatch(
       context: DQContext,
-      sink: MetricSink,
+      sink: Sink,
       batchDf: DataFrame,
       batchId: Long): Unit = {
     val multipleSinks = hasMultipleSinks(context)
     if (multipleSinks) batchDf.persist()
 
     val metrics: Map[String, Any] = processBatch(batchDf, batchId)
-    sink.sinkMetrics(metrics)
+    sink.sinkBatchMetrics(metrics)
 
     if (multipleSinks) batchDf.unpersist()
   }
@@ -90,18 +89,18 @@ case class MetricWriteStep(
     val df = context.sparkSession.table(s"`$inputName`")
 
     context.getSinks.foreach {
-      case metricSink: MetricSink =>
+      case sink: Sink =>
         if (df.isStreaming) {
           val metricStreamingQuery = df.writeStream
-            .queryName(s"metrics:$name:${metricSink.sinkParam.getName}")
-            .outputMode(metricSink.sinkParam.getStreamingOutputMode)
-            .trigger(metricSink.sinkParam.getTrigger)
-            .foreachBatch((batchDf, batchId) => flushBatch(context, metricSink, batchDf, batchId))
+            .queryName(s"metrics:$name:${sink.sinkParam.getName}")
+            .outputMode(sink.sinkParam.getStreamingOutputMode)
+            .trigger(sink.sinkParam.getTrigger)
+            .foreachBatch((batchDf, batchId) => flushBatch(context, sink, batchDf, batchId))
             .start()
 
           StreamingQueryRegister.registerQuery(metricStreamingQuery)
         } else {
-          flushBatch(context, metricSink, df, 0L)
+          flushBatch(context, sink, df, 0L)
         }
       case sink =>
         val errorMsg =

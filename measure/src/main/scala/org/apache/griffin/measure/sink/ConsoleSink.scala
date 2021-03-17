@@ -36,10 +36,7 @@ import org.apache.griffin.measure.utils.ParamUtil._
  *  will be truncated and all cells will be aligned right. Default is true.
  *  - numRows : [[Int]] Number of rows to show. Default is 20.
  */
-class ConsoleSink(val appConfig: AppConfig, val sinkParam: SinkParam)
-    extends BatchSink
-    with StreamingSink
-    with MetricSink {
+class ConsoleSink(val appConfig: AppConfig, val sinkParam: SinkParam) extends Sink {
 
   private val OptionsStr: String = "options"
   private val Truncate: String = "truncate"
@@ -63,7 +60,7 @@ class ConsoleSink(val appConfig: AppConfig, val sinkParam: SinkParam)
   /**
    * Implementation of persisting metrics.
    */
-  override def sinkMetrics(metrics: Map[String, Any]): Unit = {
+  override def sinkBatchMetrics(metrics: Map[String, Any]): Unit = {
     info(s"Metrics for job with name '${appConfig.getName}':\n${JsonUtil.toJson(metrics)}")
   }
 
@@ -72,18 +69,18 @@ class ConsoleSink(val appConfig: AppConfig, val sinkParam: SinkParam)
     dataset.show(numRows, truncateRecords)
   }
 
-  /**
-   * Implementation of persisting records for streaming pipelines.
-   */
-  override def sinkStreamingRecords(dataset: DataFrame): StreamingQuery = {
-    assert(dataset.isStreaming, "The given dataset is not steaming.")
-
-    dataset.writeStream
-      .format("console")
-      .outputMode(sinkParam.getStreamingOutputMode)
-      .trigger(sinkParam.getTrigger)
-      .options(options)
-      .queryName(sinkParam.getName)
-      .start()
-  }
+//  /**
+//   * Implementation of persisting records for streaming pipelines.
+//   */
+//  override def sinkStreamingRecords(dataset: DataFrame): StreamingQuery = {
+//    assert(dataset.isStreaming, "The given dataset is not steaming.")
+//
+//    dataset.writeStream
+//      .format("console")
+//      .outputMode(sinkParam.getStreamingOutputMode)
+//      .trigger(sinkParam.getTrigger)
+//      .options(options)
+//      .queryName(sinkParam.getName)
+//      .start()
+//  }
 }

@@ -44,8 +44,8 @@ class CustomSinkTest extends SparkSuiteBase {
   var dQContext: DQContext = _
 
   // Sinks
-  private var metricSink: MetricSink = _
-  private var batchSink: BatchSink = _
+  private var metricSink: Sink = _
+  private var batchSink: Sink = _
 
   val metricsDefaultOutput: RuleOutputParam =
     RuleOutputParam("metrics", "default_output", "default")
@@ -54,9 +54,8 @@ class CustomSinkTest extends SparkSuiteBase {
     super.beforeAll()
     dQContext =
       DQContext(Some(ContextId(System.currentTimeMillis)), appConfig = appConfig, Nil, sinkParams)
-    metricSink =
-      dQContext.getSinks.find(_.sinkParam == metricSinkParam).get.asInstanceOf[MetricSink]
-    batchSink = dQContext.getSinks.find(_.sinkParam == batchSinkParam).get.asInstanceOf[BatchSink]
+    metricSink = dQContext.getSinks.find(_.sinkParam == metricSinkParam).get
+    batchSink = dQContext.getSinks.find(_.sinkParam == batchSinkParam).get
   }
 
   def createDataFrame(arr: Seq[Int]): DataFrame = {
@@ -79,10 +78,10 @@ class CustomSinkTest extends SparkSuiteBase {
   }
 
   "custom sink" can "sink metrics" in {
-    val sinkMetrics1Result = Try(metricSink.sinkMetrics(Map("sum" -> 10))).isSuccess
+    val sinkMetrics1Result = Try(metricSink.sinkBatchMetrics(Map("sum" -> 10))).isSuccess
     assert(sinkMetrics1Result)
 
-    val sinkMetrics2Result = Try(metricSink.sinkMetrics(Map("count" -> 5))).isSuccess
+    val sinkMetrics2Result = Try(metricSink.sinkBatchMetrics(Map("count" -> 5))).isSuccess
     assert(sinkMetrics2Result)
 
     val actualMetrics = CustomSinkResultRegister.getMetrics(metricSink.sinkParam.getName)

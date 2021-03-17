@@ -20,8 +20,7 @@ package org.apache.griffin.measure.step.write
 import scala.util.Try
 
 import org.apache.griffin.measure.context.DQContext
-import org.apache.griffin.measure.execution.StreamingQueryRegister
-import org.apache.griffin.measure.sink.{BatchSink, StreamingSink}
+import org.apache.griffin.measure.sink.Sink
 
 /**
  * write records needs to be sink
@@ -38,18 +37,21 @@ case class RecordWriteStep(
 
     // write records
     val res = context.getSinks.map {
-      case sink: BatchSink =>
-        sink.sinkBatchRecords(name, records)
-        true
-      case sink: StreamingSink =>
-        val streamingQuery = sink.sinkStreamingRecords(records)
-        StreamingQueryRegister.registerQuery(streamingQuery)
+      case sink: Sink =>
+        if (records.isStreaming) {
+          records.writeStream.foreachBatch((batchDf, batchId) => {
+            sink.sinkBatchRecords(name, batchDf)
+          })
+        } else {
+          sink.sinkBatchRecords(name, records)
+        }
+
         true
       case sink =>
         val errorMsg =
           s"Sink with name '${sink.sinkParam.getName}' does not support record writing."
         warn(errorMsg)
-        true
+        false
     }
 
     res.forall(x => x)

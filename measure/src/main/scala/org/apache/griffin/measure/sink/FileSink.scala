@@ -32,10 +32,7 @@ import org.apache.griffin.measure.utils.ParamUtil._
 /**
  * sink metric and record to hdfs
  */
-class FileSink(val appConfig: AppConfig, val sinkParam: SinkParam)
-    extends BatchSink
-    with StreamingSink
-    with MetricSink {
+class FileSink(val appConfig: AppConfig, val sinkParam: SinkParam) extends Sink {
 
   private val OptionsStr: String = "options"
   private val FormatStr: String = "format"
@@ -85,7 +82,7 @@ class FileSink(val appConfig: AppConfig, val sinkParam: SinkParam)
     info(s"Closed FileBasedSink for job with name '$jobName'")
   }
 
-  override def sinkMetrics(metrics: Map[String, Any]): Unit = {
+  override def sinkBatchMetrics(metrics: Map[String, Any]): Unit = {
     val json = JsonUtil.toJson(metrics)
     HdfsUtil.withHdfsFile(metricsPath, appendIfExists = false) { out =>
       out.write((json + "\n").getBytes("utf-8"))
@@ -101,18 +98,18 @@ class FileSink(val appConfig: AppConfig, val sinkParam: SinkParam)
     }.save(s"$recordsPath/$measureName/")
   }
 
-  /**
-   * Implementation of persisting records for streaming pipelines.
-   */
-  override def sinkStreamingRecords(dataset: DataFrame): StreamingQuery = {
-    assert(dataset.isStreaming, "The given dataset is not steaming.")
-
-    dataset.writeStream
-      .format(format)
-      .outputMode(sinkParam.getStreamingOutputMode)
-      .trigger(sinkParam.getTrigger)
-      .options(options)
-      .queryName(sinkParam.getName)
-      .start(recordsPath)
-  }
+//  /**
+//   * Implementation of persisting records for streaming pipelines.
+//   */
+//  override def sinkStreamingRecords(dataset: DataFrame): StreamingQuery = {
+//    assert(dataset.isStreaming, "The given dataset is not steaming.")
+//
+//    dataset.writeStream
+//      .format(format)
+//      .outputMode(sinkParam.getStreamingOutputMode)
+//      .trigger(sinkParam.getTrigger)
+//      .options(options)
+//      .queryName(sinkParam.getName)
+//      .start(recordsPath)
+//  }
 }
